@@ -1,77 +1,454 @@
-# Adding a file to a repository
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Club Neon Management</title>
+<meta name="theme-color" content="#101923">
+<style>
+:root{--bg:#0c1118;--p:#151e29;--p2:#1d2937;--line:#2b3949;--txt:#edf3f8;--muted:#9aabba;--gold:#f4bd42;--green:#36c98b;--red:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px system-ui}
+header{padding:15px 20px;background:#101923;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0}
+.brand{font-weight:900;font-size:20px;letter-spacing:1px}
+.brand span{color:var(--gold)}
+button,input,select{font:inherit}
+button{border:0;border-radius:9px;padding:10px 13px;background:var(--gold);font-weight:700;cursor:pointer}
+button.secondary{background:var(--p2);color:var(--txt);border:1px solid var(--line)}
+input,select{width:100%;padding:10px;background:#0e1721;color:white;border:1px solid var(--line);border-radius:8px}
+.layout{display:grid;grid-template-columns:200px 1fr;min-height:90vh}
+nav{background:#101923;padding:12px}
+nav button{display:block;width:100%;text-align:left;background:transparent;color:var(--muted)}
+nav button.active{background:var(--p2);color:white}
+main{padding:18px;max-width:1400px;width:100%;margin:auto}
+.panel,.card{background:var(--p);border:1px solid var(--line);border-radius:13px;padding:15px;margin:12px 0}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.metric{font-size:23px;font-weight:850}
+.muted,.hint{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.hidden{display:none!important}
+.tablewrap{overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:540px}
+td,th{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:12px}
+th{color:var(--muted)}
+#auth{max-width:430px;margin:8vh auto}
+.error{color:#ff9999;white-space:pre-wrap}
+.good{color:var(--green)}
+@media(max-width:800px){
+.layout{grid-template-columns:1fr}
+nav{display:flex;overflow:auto}
+nav button{white-space:nowrap;width:auto}
+.cards{grid-template-columns:repeat(2,1fr)}
+main{padding:10px}
+}
+@media(max-width:480px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
 
-You can upload and commit an existing file to a repository on GitHub or by using the command line.
+<header>
+<div>
+<div class="brand">CLUB <span>NEON</span></div>
+<div class="muted">ONLINE BUSINESS MANAGER • KENYA</div>
+</div>
+<div><span id="status" class="good">Not connected</span></div>
+</header>
 
-## Adding a file to a repository on GitHub
+<section id="auth" class="panel">
+<h1>Club Neon access</h1>
+<p class="hint">Enter the shared Club Neon PIN. Each device needs to enter it once.</p>
+<div class="field">
+<label>Shared PIN</label>
+<input id="clubPin" type="password" autocomplete="current-password" placeholder="Enter shared PIN">
+</div>
+<div class="actions">
+<button id="unlockBtn" onclick="unlockClub()">Open Club Neon</button>
+</div>
+<p id="authMsg" class="error"></p>
+</section>
 
-Files that you add to a repository via a browser are limited to 25 MiB per file. You can add larger files, up to 100 MiB each, via the command line. For more information, see [Adding a file to a repository using the command line](#adding-a-file-to-a-repository-using-the-command-line). To add files larger than 100 MiB, you must use Git Large File Storage. For more information, see [About large files on GitHub](/en/repositories/working-with-files/managing-large-files/about-large-files-on-github).
+<div id="app" class="layout hidden">
+<nav>
+<button class="active" data-page="dashboard">Dashboard</button>
+<button data-page="sales">Record sale</button>
+<button data-page="stock">Stock & products</button>
+<button data-page="expenses">Expenses</button>
+<button data-page="reports">Reports</button>
+<button data-page="staff">Staff</button>
+<button data-page="backup">Backup</button>
+</nav>
 
-You can upload up to 100 files to GitHub at the same time.
+<main>
+<section id="dashboard" class="page">
+<h1>Business overview</h1>
+<p class="hint" id="today"></p>
+<div class="cards">
+<div class="card"><div class="muted">Today's sales</div><div class="metric" id="ds">KSh 0</div></div>
+<div class="card"><div class="muted">Expenses</div><div class="metric" id="de">KSh 0</div></div>
+<div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
+<div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
+</div>
+<div class="panel"><h2>Recent sales</h2><div id="recent" class="tablewrap"></div></div>
+</section>
 
-If a repository has any protected branches, you can't edit or upload files in the protected branch using GitHub. You can use GitHub Desktop to move your changes to a new branch and commit them. For more information, see [About protected branches](/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) and [Committing and reviewing changes to your project in GitHub Desktop](/en/desktop/making-changes-in-a-branch/committing-and-reviewing-changes-to-your-project-in-github-desktop).
+<section id="sales" class="page hidden">
+<h1>Record sale</h1>
+<div class="panel">
+<div class="grid">
+<div class="field"><label>Product</label><select id="sp"></select></div>
+<div class="field"><label>Quantity</label><input id="sq" type="number" min="1" value="1"></div>
+<div class="field"><label>Unit selling price</label><input id="sprice" type="number" min="0" step=".01"></div>
+<div class="field"><label>Payment</label><select id="pay"><option>Cash</option><option>M-Pesa</option></select></div>
+<div class="field"><label>Served by</label><select id="sstaff"></select></div>
+<div class="field"><label>Note</label><input id="snote"></div>
+</div>
+<div class="actions"><button onclick="recordSale()">Save sale</button></div>
+<p id="smsg" class="hint"></p>
+</div>
+<div class="panel"><h2>Sales history</h2><div id="salesTable" class="tablewrap"></div></div>
+</section>
 
-Your repository may have push rulesets enabled. Push rulesets may block creating a new file in the repository based on certain restrictions. Push rulesets apply to the repository's entire fork network. Which means that any push rulesets that are configured in the root repository will also apply to every fork of the repository. For more information, see [About rulesets](/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets#about-rulesets).
+<section id="stock" class="page hidden">
+<h1>Stock & products</h1>
+<div class="panel">
+<h2>Add product / opening stock</h2>
+<div class="grid">
+<div class="field"><label>Product name</label><input id="pn" placeholder="Guinness, Tusker, etc."></div>
+<div class="field"><label>Category</label><select id="pc"><option>Beer</option><option>Spirits</option><option>Soft drinks</option><option>Water</option><option>Wines</option><option>Other</option></select></div>
+<div class="field"><label>Buying cost</label><input id="cost" type="number" min="0" step=".01"></div>
+<div class="field"><label>Selling price</label><input id="sell" type="number" min="0" step=".01"></div>
+<div class="field"><label>Opening quantity</label><input id="qty" type="number" min="0" value="0"></div>
+<div class="field"><label>Low-stock alert</label><input id="alert" type="number" min="0" value="5"></div>
+</div>
+<div class="actions"><button onclick="saveProduct()">Save product</button></div>
+</div>
+<div class="panel"><h2>Current stock</h2><div id="stockTable" class="tablewrap"></div></div>
+<div class="panel"><h2>Stock-in history</h2><div id="stockHistory" class="tablewrap"></div></div>
+</section>
 
-Your repository may be secured by push protection. With push protection, GitHub will block uploading a file to the repository if the file contains a supported secret, such as a token. You should remove the secret from the file before attempting to upload the file again. For more information, see [Working with push protection in the GitHub UI](/en/code-security/how-tos/secure-your-secrets/work-with-leak-prevention/push-protection-in-the-github-ui) and [Working with push protection in the GitHub UI](/en/code-security/how-tos/secure-your-secrets/work-with-leak-prevention/push-protection-in-the-github-ui#resolving-a-blocked-commit).
+<section id="expenses" class="page hidden">
+<h1>Expenses</h1>
+<div class="panel">
+<div class="grid">
+<div class="field"><label>Description</label><input id="edesc"></div>
+<div class="field"><label>Category</label><select id="ecat"><option>Staff wages</option><option>DJ / entertainment</option><option>Utilities</option><option>Transport</option><option>Rent</option><option>Repairs</option><option>Other</option></select></div>
+<div class="field"><label>Amount</label><input id="eamount" type="number" min=".01" step=".01"></div>
+<div class="field"><label>Paid by</label><select id="epay"><option>Cash</option><option>M-Pesa</option></select></div>
+</div>
+<div class="actions"><button onclick="addExpense()">Save expense</button></div>
+</div>
+<div class="panel"><h2>Expense history</h2><div id="expenseTable" class="tablewrap"></div></div>
+</section>
 
-> [!NOTE] Push protection for file uploads in the web UI is currently in public preview and subject to change.
+<section id="reports" class="page hidden">
+<h1>Reports</h1>
+<div class="panel">
+<div class="grid">
+<div class="field"><label>From</label><input id="from" type="date"></div>
+<div class="field"><label>To</label><input id="to" type="date"></div>
+</div>
+<div class="actions">
+<button onclick="renderReports()">Run report</button>
+<button class="secondary" onclick="exportCSV()">Export CSV</button>
+</div>
+</div>
+<div class="cards">
+<div class="card">Sales<div class="metric" id="rs">0</div></div>
+<div class="card">Cost of goods<div class="metric" id="rc">0</div></div>
+<div class="card">Gross profit<div class="metric" id="rg">0</div></div>
+<div class="card">Expenses<div class="metric" id="re">0</div></div>
+</div>
+<div class="panel"><h2>Net result</h2><div class="metric" id="rn">0</div><div id="productReport" class="tablewrap"></div></div>
+</section>
 
-> [!WARNING]
-> Use Git to push files to your repository if you need to apply the logic in your `.gitattributes` file. For example, automatic conversion of line endings. Uploading a file through the GitHub web interface will ignore `.gitattributes`.
+<section id="staff" class="page hidden">
+<h1>Staff</h1>
+<div class="panel">
+<div class="grid">
+<div class="field"><label>Name</label><input id="staffName"></div>
+<div class="field"><label>Role</label><select id="staffRole"><option>Cashier</option><option>Waiter</option><option>Bartender</option><option>Manager</option><option>DJ</option><option>Other</option></select></div>
+</div>
+<div class="actions"><button onclick="addStaff()">Add staff</button></div>
+</div>
+<div class="panel"><div id="staffTable" class="tablewrap"></div></div>
+</section>
 
-1. On GitHub, navigate to the main page of the repository.
-2. Above the list of files, select the **Add file** dropdown menu and click **Upload files**. Alternatively, you can drag and drop files into your browser.
+<section id="backup" class="page hidden">
+<h1>Backup</h1>
+<div class="panel">
+<p class="hint">Download a copy of cloud records or refresh from the database.</p>
+<div class="actions">
+<button onclick="backup()">Download JSON backup</button>
+<button class="secondary" onclick="refreshAll()">Refresh from cloud</button>
+</div>
+</div>
+</section>
+</main>
+</div>
 
-   ![Screenshot of the main page of the repository. Above the list of a files, a button, labeled "Add file," is outlined in dark orange.](/assets/images/help/repository/upload-files-button.png)
-3. To select the files you want to upload, drag and drop the file or folder, or click **choose your files**.
-4. In the "Commit message" field, type a short, meaningful commit message that describes the change you made to the file. You can attribute the commit to more than one author in the commit message. For more information, see [Creating a commit with multiple authors or on behalf of an organization](/en/pull-requests/how-tos/commit-changes/creating-a-commit-with-multiple-authors).
-5. Below the commit message fields, decide whether to add your commit to the current branch or to a new branch. If your current branch is the default branch, you should choose to create a new branch for your commit and then create a pull request. For more information, see [Creating a pull request](/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request).
+<script type="module">
+import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-   ![Screenshot of a GitHub pull request showing a radio button to commit directly to the main branch or to create a new branch. New branch is selected.](/assets/images/help/repository/choose-commit-branch.png)
-6. Click **Propose changes**.
+const sb=createClient(
+'https://scrrumwnclojwgedjzah.supabase.co',
+'sb_publishable_4iSjmwe4ngah8LGJt-V_vg_nffRN9Cf'
+);
 
-## Adding a file to a repository using the command line
+let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
+const $=id=>document.getElementById(id);
+const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const date=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:'Africa/Nairobi'});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-You can upload an existing file to a repository on GitHub using the command line.
+function tbl(headers,rows){
+return rows.length
+?'<table><thead><tr>'+headers.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'
+:'<p class="hint">No records yet.</p>';
+}
 
-> [!TIP]
-> You can also [add an existing file to a repository from the GitHub website](/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository).
+window.unlockClub=async()=>{
+const pin=$('clubPin').value.trim();
+if(pin.length<12){
+$('authMsg').textContent='Use a passphrase of at least 12 characters.';
+return;
+}
+const btn=$('unlockBtn');
+btn.disabled=true;
+$('authMsg').textContent='Checking PIN…';
+try{
+const {data,error}=await sb.rpc('club_neon_join_with_pin',{p_pin:pin});
+if(error)throw error;
+if(!data){
+$('authMsg').textContent='PIN not accepted. Check it and try again.';
+return;
+}
+bid=data;
+$('clubPin').value='';
+await boot();
+}catch(e){
+$('authMsg').textContent=e.message||'Could not connect. Check Supabase setup.';
+}finally{
+btn.disabled=false;
+}
+};
 
-This procedure assumes you've already:
+async function boot(){
+const {data:{user}}=await sb.auth.getUser();
+if(!user)return;
+const {data:m,error}=await sb.from('business_members').select('business_id').eq('user_id',user.id).limit(1);
+if(error){$('authMsg').textContent=error.message;return;}
+if(!m.length){
+$('auth').classList.remove('hidden');
+$('app').classList.add('hidden');
+return;
+}
+bid=m[0].business_id;
+$('auth').classList.add('hidden');
+$('app').classList.remove('hidden');
+await refreshAll();
+$('status').textContent='Cloud connected';
+}
 
-* [Created a repository on GitHub](/en/repositories/creating-and-managing-repositories/creating-a-new-repository), or have an existing repository owned by someone else you'd like to contribute to
-* [Cloned the repository locally on your computer](/en/repositories/creating-and-managing-repositories/cloning-a-repository)
+async function startApp(){
+$('status').textContent='Connecting…';
+let {data:{session},error}=await sb.auth.getSession();
+if(error)throw error;
+if(!session){
+const r=await sb.auth.signInAnonymously();
+if(r.error)throw r.error;
+}
+await boot();
+}
 
-> [!WARNING]
-> Never `git add`, `commit`, or `push` sensitive information, for example passwords or API keys, to a remote repository. If you've already added this information, see [Removing sensitive data from a repository](/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository).
+window.refreshAll=async()=>{
+if(!bid)return;
+const names=['products','sales','expenses','staff','stock_movements'];
+const res=await Promise.all(names.map(t=>sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false})));
+for(let i=0;i<res.length;i++){
+if(res[i].error){alert(res[i].error.message);return;}
+}
+[products,sales,expenses,staff,moves]=res.map(x=>x.data);
+render();
+};
 
-1. On your computer, move the file you'd like to upload to GitHub into the local directory that was created when you cloned the repository.
+function render(){
+const today=date(new Date());
+const ss=sales.filter(x=>date(x.created_at)===today);
+const ee=expenses.filter(x=>date(x.created_at)===today);
+const s=ss.reduce((a,x)=>a+Number(x.total),0);
+const c=ss.reduce((a,x)=>a+Number(x.cost_total),0);
+const e=ee.reduce((a,x)=>a+Number(x.amount),0);
+$('today').textContent=new Date().toLocaleDateString('en-KE',{dateStyle:'full'});
+$('ds').textContent=money(s);
+$('de').textContent=money(e);
+$('dg').textContent=money(s-c);
+$('dn').textContent=money(s-c-e);
 
-2. Open <span class="platform-mac">Terminal</span><span class="platform-linux">Terminal</span><span class="platform-windows">Git Bash</span>.
+$('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff'],
+ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${x.payment_method}</td><td>${esc(x.staff_name)}</td></tr>`));
 
-3. Change the current working directory to your local repository.
+$('sp').innerHTML=products.map(p=>`<option value="${p.id}">${esc(p.name)} (${p.stock})</option>`).join('');
+$('sstaff').innerHTML='<option value="">Owner</option>'+staff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
 
-4. Stage the file for commit to your local repository.
+$('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Alert',''],
+products.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.category}</td><td>${money(p.buying_cost)}</td><td>${money(p.selling_price)}</td><td>${p.stock}</td><td>${p.low_stock_alert}</td><td><button class="secondary" onclick="restock('${p.id}')">Add stock</button></td></tr>`));
 
-   ```shell
-   $ git add .
-   # Adds the file to your local repository and stages it for commit. To unstage a file, use 'git reset HEAD YOUR-FILE'.
-   ```
+$('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff'],
+sales.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${x.payment_method}</td><td>${esc(x.staff_name)}</td></tr>`));
 
-5. Commit the file that you've staged in your local repository.
+$('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment'],
+expenses.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.description)}</td><td>${x.category}</td><td>${money(x.amount)}</td><td>${x.payment_method}</td></tr>`));
 
-   ```shell
-   $ git commit -m "Add existing file"
-   # Commits the tracked changes and prepares them to be pushed to a remote repository. To remove this commit and modify the file, use 'git reset --soft HEAD~1' and commit and add the file again.
-   ```
+$('staffTable').innerHTML=tbl(['Name','Role'],
+staff.map(x=>`<tr><td>${esc(x.name)}</td><td>${x.role}</td></tr>`));
 
-6. [Push the changes](/en/get-started/using-git/pushing-commits-to-a-remote-repository) in your local repository to GitHub.com.
+$('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
+moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td><td>${x.movement_type}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
+}
 
-   ```shell
-   $ git push origin YOUR_BRANCH
-   # Pushes the changes in your local repository up to the remote repository you specified as the origin
-   ```
+window.recordSale=async()=>{
+const p=products.find(x=>x.id===$('sp').value);
+const q=Number($('sq').value);
+const price=Number($('sprice').value||p?.selling_price);
+const sid=$('sstaff').value;
+const st=staff.find(x=>x.id===sid);
+if(!p||!Number.isInteger(q)||q<1)return alert('Choose a product and valid quantity.');
+const {error}=await sb.rpc('club_neon_record_sale',{
+p_business:bid,p_product:p.id,p_quantity:q,p_unit_price:price,
+p_payment:$('pay').value,p_staff_id:sid||null,
+p_staff_name:st?.name||'Owner',p_note:$('snote').value||null
+});
+if(error)alert(error.message);
+else{
+$('sq').value=1;$('sprice').value='';$('snote').value='';
+$('smsg').textContent='Sale saved; stock reduced.';
+await refreshAll();
+}
+};
 
-## Further reading
+window.saveProduct=async()=>{
+const name=$('pn').value.trim(),cat=$('pc').value;
+const cost=Number($('cost').value),sell=Number($('sell').value);
+const qty=Number($('qty').value),alertAt=Number($('alert').value);
+if(!name||cost<0||sell<0||!Number.isInteger(qty)||qty<0)return alert('Check product details.');
+const {data:old,error:findErr}=await sb.from('products').select('*').eq('business_id',bid).ilike('name',name).maybeSingle();
+if(findErr)return alert(findErr.message);
+if(old){
+const {error}=await sb.from('products').update({category:cat,buying_cost:cost,selling_price:sell,low_stock_alert:alertAt}).eq('id',old.id);
+if(error)return alert(error.message);
+if(qty){
+const r=await sb.rpc('club_neon_add_stock',{p_business:bid,p_product:old.id,p_quantity:qty,p_unit_cost:cost,p_note:'Added stock'});
+if(r.error)return alert(r.error.message);
+}
+}else{
+const {data:p,error}=await sb.from('products').insert({business_id:bid,name,category:cat,buying_cost:cost,selling_price:sell,stock:qty,low_stock_alert:alertAt}).select().single();
+if(error)return alert(error.message);
+if(qty){
+const r=await sb.from('stock_movements').insert({business_id:bid,product_id:p.id,movement_type:'stock_in',quantity:qty,unit_cost:cost,note:'Opening stock'});
+if(r.error)return alert(r.error.message);
+}
+}
+$('pn').value='';$('cost').value='';$('sell').value='';$('qty').value=0;
+await refreshAll();
+};
 
-* [Adding locally hosted code to GitHub](/en/migrations/importing-source-code/using-the-command-line-to-import-source-code/adding-locally-hosted-code-to-github)
+window.restock=async id=>{
+const p=products.find(x=>x.id===id);
+const q=Number(prompt('Quantity to add for '+p.name));
+if(!Number.isInteger(q)||q<1)return;
+const c=Number(prompt('New unit buying cost',p.buying_cost));
+if(!Number.isFinite(c)||c<0)return;
+const {error}=await sb.rpc('club_neon_add_stock',{
+p_business:bid,p_product:id,p_quantity:q,p_unit_cost:c,p_note:'Stock-in'
+});
+if(error)alert(error.message);else await refreshAll();
+};
+
+window.addExpense=async()=>{
+const description=$('edesc').value.trim(),amount=Number($('eamount').value);
+if(!description||amount<=0)return alert('Enter description and amount');
+const {error}=await sb.from('expenses').insert({
+business_id:bid,description,category:$('ecat').value,
+amount,payment_method:$('epay').value
+});
+if(error)alert(error.message);
+else{$('edesc').value='';$('eamount').value='';await refreshAll();}
+};
+
+window.addStaff=async()=>{
+const name=$('staffName').value.trim();
+if(!name)return;
+const {error}=await sb.from('staff').insert({
+business_id:bid,name,role:$('staffRole').value
+});
+if(error)alert(error.message);
+else{$('staffName').value='';await refreshAll();}
+};
+
+window.renderReports=()=>{
+const f=$('from').value||'0000-01-01',t=$('to').value||'9999-12-31';
+const ss=sales.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
+const ee=expenses.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
+const s=ss.reduce((a,x)=>a+Number(x.total),0);
+const c=ss.reduce((a,x)=>a+Number(x.cost_total),0);
+const e=ee.reduce((a,x)=>a+Number(x.amount),0);
+[['rs',s],['rc',c],['rg',s-c],['re',e],['rn',s-c-e]].forEach(([id,v])=>$(id).textContent=money(v));
+const g={};
+ss.forEach(x=>{
+g[x.product_name]??={q:0,s:0,c:0};
+g[x.product_name].q+=x.quantity;
+g[x.product_name].s+=Number(x.total);
+g[x.product_name].c+=Number(x.cost_total);
+});
+$('productReport').innerHTML=tbl(['Product','Qty','Sales','Gross profit'],
+Object.entries(g).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.q}</td><td>${money(v.s)}</td><td>${money(v.s-v.c)}</td></tr>`));
+};
+
+window.exportCSV=()=>{
+const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff'],
+...sales.map(x=>[x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name])];
+download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'club-neon-sales.csv','text/csv');
+};
+
+window.backup=()=>{
+download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves},null,2),'club-neon-backup.json','application/json');
+};
+
+function download(data,name,type){
+const a=document.createElement('a');
+const u=URL.createObjectURL(new Blob([data],{type}));
+a.href=u;a.download=name;a.click();
+setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+
+function go(p){
+document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
+$(p).classList.remove('hidden');
+document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
+if(p==='reports')renderReports();
+}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
+
+sb.auth.onAuthStateChange((event,session)=>{
+if(session&&!bid)setTimeout(boot,0);
+});
+
+try{
+await startApp();
+}catch(e){
+$('status').textContent='Connection setup needed';
+$('authMsg').textContent=e.message+' Check Supabase Anonymous Sign-ins and your shared PIN SQL setup.';
+}
+
+function setDates(){
+$('from').value=date(new Date(new Date().getFullYear(),new Date().getMonth(),1));
+$('to').value=date(new Date());
+}
+setDates();
+</script>
+</body>
+</html>
