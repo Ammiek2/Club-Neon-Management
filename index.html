@@ -177,7 +177,7 @@ main{padding:10px}
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
   </div>
   <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Full stock and product management for both admin and staff.</p><div id="stockTable" class="tablewrap"></div></div>
-  <div class="panel"><h2>Stock movement history (stock-in, sales and corrections)</h2><div id="stockHistory" class="tablewrap"></div></div>
+  <div class="panel" id="stockHistoryPanel"><h2>Stock movement history (stock-in, sales and corrections)</h2><div id="stockHistory" class="tablewrap"></div></div>
  </section>
 
  <section id="expenses" class="page hidden">
@@ -517,10 +517,16 @@ function render(){
   <button class="secondary small" onclick="resetStaffPin('${x.id}')">Reset PIN</button></td></tr>`));
  }
 
- $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
- moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
- <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
- <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
+ if(role==='admin'){
+  $('stockHistoryPanel').style.display='';
+  $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
+  moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
+  <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
+ }else{
+  $('stockHistoryPanel').style.display='none';
+  $('stockHistory').innerHTML='';
+ }
 }
 
 window.recordSale=async()=>{
