@@ -256,6 +256,7 @@ const sb=createClient(
 let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
+let refreshBusy=false;
 
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -409,7 +410,8 @@ window.logout=async()=>{
 };
 
 window.refreshAll=async()=>{
- if(!bid||!role)return;
+ if(!bid||!role||refreshBusy)return;
+ refreshBusy=true;
  $('status').textContent='Refreshing...';
 
  const names=role==='admin'
@@ -417,13 +419,14 @@ window.refreshAll=async()=>{
  :['products','sales','staff','stock_movements'];
 
  const res=await Promise.all(names.map(t=>
-  sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false})
+  sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false}).range(0,4999)
  ));
 
  for(let i=0;i<res.length;i++){
   if(res[i].error){
    $('status').textContent='Database error';
    $('message').textContent=names[i]+': '+res[i].error.message;
+   refreshBusy=false;
    return;
   }
  }
@@ -437,7 +440,14 @@ window.refreshAll=async()=>{
 
  render();
  $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
+ refreshBusy=false;
 };
+
+// Keep every logged-in device in sync with the same cloud stock and sales records.
+// Polling is used as a reliable fallback even if Supabase Realtime is not enabled.
+setInterval(()=>{
+ if(role&&!refreshBusy)window.refreshAll();
+},5000);
 
 function render(){
  const today=date(new Date());
