@@ -360,8 +360,9 @@ window.loginStaff=async()=>{
  if(!id)return loginError('Select your staff name.');
  if(!/^\d{4,8}$/.test(pin))return loginError('Enter your 4–8 digit PIN.');
  loginError('Checking PIN...');
- const {error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
+ const {data,error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
  if(error)return loginError(error.message);
+ if(data!==true)return loginError('Staff PIN was not accepted. Check that this staff member has an enrolled PIN.');
  const person=staffDirectory.find(x=>x.id===id);
  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
  try{await enterApp();}catch(e){loginError(e.message);}
