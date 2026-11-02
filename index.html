@@ -416,7 +416,7 @@ window.refreshAll=async()=>{
 
  const names=role==='admin'
  ?['products','sales','expenses','staff','stock_movements']
- :['products','sales','staff','stock_movements'];
+ :['products','sales','stock_movements'];
 
  const res=await Promise.all(names.map(t=>
   sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false}).range(0,4999)
@@ -434,8 +434,10 @@ window.refreshAll=async()=>{
  if(role==='admin'){
   [products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
  }else{
-  [products,sales,staff,moves]=res.map(x=>x.data||[]);
+  // Staff cannot read the admin-only staff directory. Skip it so it cannot block shared stock.
+  [products,sales,moves]=res.map(x=>x.data||[]);
   expenses=[];
+  staff=[];
  }
 
  render();
