@@ -176,7 +176,7 @@ main{padding:10px}
    </div>
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
   </div>
-  <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">All products and current quantities. Staff can count stock and record stock-in; product setup is admin-only.</p><div id="stockTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Full stock and product management for both admin and staff.</p><div id="stockTable" class="tablewrap"></div></div>
   <div class="panel"><h2>Stock movement history (stock-in, sales and corrections)</h2><div id="stockHistory" class="tablewrap"></div></div>
  </section>
 
@@ -470,17 +470,16 @@ function render(){
   $('sstaff').innerHTML='<option value="">Owner</option>'+activeStaff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
  }
 
- $('addProductPanel').classList.toggle('hidden',role!=='admin');
  $('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Alert','Status','Actions'],
  products.map(p=>`<tr>
  <td>${esc(p.name)}</td><td>${esc(p.category)}</td>
  <td>${money(p.buying_cost)}</td><td>${money(p.selling_price)}</td>
  <td>${p.stock}</td><td>${p.low_stock_alert}</td>
  <td>${p.active===false?'Archived':'Active'}</td>
- <td>${role==='admin'?'<button class="secondary small" onclick="editProduct(\''+p.id+'\')">Edit</button>':''}
- <button class="secondary small" onclick="adjustStock('${p.id}')">Count / correct</button>
- <button class="secondary small" onclick="restock('${p.id}')">Stock in</button>
- ${role==='admin'?'<button class="'+(p.active===false?'secondary':'danger')+' small" onclick="toggleProduct(\''+p.id+'\')">'+(p.active===false?'Restore':'Archive')+'</button>':''}</td></tr>`));
+ <td><button class="secondary small" onclick="editProduct('${p.id}')">Edit</button>
+ <button class="secondary small" onclick="adjustStock('${p.id}')">Correct stock</button>
+ <button class="${p.active===false?'secondary':'danger'} small" onclick="toggleProduct('${p.id}')">${p.active===false?'Restore':'Archive'}</button>
+ <button class="secondary small" onclick="restock('${p.id}')">Stock in</button></td></tr>`));
 
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
  sales.map(x=>`<tr>
