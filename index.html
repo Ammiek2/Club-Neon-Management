@@ -263,6 +263,8 @@ let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
 let refreshBusy=false;
+let realtimeChannel=null;
+let realtimeTimer=null;
 
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -401,11 +403,13 @@ async function enterApp(){
  });
 
  await refreshAll();
+ startLiveSync();
  go(role==='admin'?'dashboard':'sales');
  $('message').textContent='Welcome '+currentStaffName+'. Your access is active.';
 }
 
 window.logout=async()=>{
+ stopLiveSync();
  try{await sb.rpc('club_neon_pin_logout');}catch(e){}
  role=null;currentStaffId=null;currentStaffName=null;
  products=[];sales=[];expenses=[];staff=[];moves=[];
@@ -417,10 +421,10 @@ window.logout=async()=>{
  backLogin();
 };
 
-window.refreshAll=async()=>{
+window.refreshAll=async(silent=false)=>{
  if(!bid||!role||refreshBusy)return;
  refreshBusy=true;
- $('status').textContent='Refreshing...';
+ if(!silent)$('status').textContent='Refreshing...';
 
  const names=role==='admin'
  ?['products','sales','expenses','staff','stock_movements']
@@ -449,15 +453,45 @@ window.refreshAll=async()=>{
  }
 
  render();
- $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
+ $('status').textContent=realtimeChannel?'Live sync active':(role==='admin'?'Admin unlocked':'Staff unlocked');
  refreshBusy=false;
 };
 
-// Keep every logged-in device in sync with the same cloud stock and sales records.
-// Polling is used as a reliable fallback even if Supabase Realtime is not enabled.
-setInterval(()=>{
- if(role&&!refreshBusy)window.refreshAll();
-},5000);
+// Live cloud subscriptions replace the old five-second polling loop.
+function startLiveSync(){
+ stopLiveSync();
+ if(!bid||!role)return;
+ const tables=role==='admin'
+  ?['products','sales','expenses','staff','stock_movements']
+  :['products','sales','stock_movements'];
+ let channel=sb.channel('club-neon-live-'+bid+'-'+role);
+ for(const table of tables){
+  channel=channel.on('postgres_changes',{
+   event:'*',schema:'public',table,filter:'business_id=eq.'+bid
+  },()=>{
+   if(realtimeTimer)clearTimeout(realtimeTimer);
+   realtimeTimer=setTimeout(async()=>{
+    if(!role)return;
+    await window.refreshAll(true);
+    if(role==='admin'&&tables.includes('staff')){
+     try{await loadStaffDirectory();}catch(e){}
+    }
+   },300);
+  });
+ }
+ realtimeChannel=channel;
+ channel.subscribe((state)=>{
+  if(state==='SUBSCRIBED')$('status').textContent='Live sync active';
+  else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'||state==='CLOSED')$('status').textContent='Live sync reconnecting...';
+ });
+}
+
+function stopLiveSync(){
+ if(realtimeTimer){clearTimeout(realtimeTimer);realtimeTimer=null;}
+ if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+}
+
+// The Refresh from cloud button remains available as a manual backup.
 
 function render(){
  const today=date(new Date());
