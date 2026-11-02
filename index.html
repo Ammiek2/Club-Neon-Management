@@ -157,8 +157,15 @@ main{padding:10px}
     <div class="field"><label>Balance date</label><input id="balanceDate" type="date" onchange="loadManualBalance()"></div>
     <div class="field"><label>Actual cash in hand (KSh)</label><input id="manualCash" type="number" min="0" step=".01" placeholder="Enter counted cash"></div>
     <div class="field"><label>Actual M-Pesa Till balance (KSh)</label><input id="manualMpesa" type="number" min="0" step=".01" placeholder="Enter Till balance"></div>
+    <div class="field"><label>Total expenses for this date (KSh)</label><input id="manualExpenses" type="number" min="0" step=".01" placeholder="Enter total expenses" oninput="updateManualBalanceSummary()"></div>
     <div class="field"><label>Note (optional)</label><input id="balanceNote" type="text" placeholder="e.g. Closing balance"></div>
    </div>
+   <div class="cards" style="margin-top:12px">
+    <div class="card"><div class="muted">Recorded total sales for selected date</div><div class="metric" id="manualSalesTotal">KSh 0</div></div>
+    <div class="card"><div class="muted">Manually entered total expenses</div><div class="metric" id="manualExpensesTotal">KSh 0</div></div>
+    <div class="card"><div class="muted">Balance after expenses</div><div class="metric" id="manualBalanceAfter">KSh 0</div></div>
+   </div>
+   <p class="hint">This calculation is separate. It does not change the Expenses section, reports, gross profit, net result, or recorded sales.</p>
    <button style="margin-top:12px" onclick="saveManualBalance()">Save daily balances</button>
    <p class="hint" id="balanceStatus">No manual balance loaded.</p>
   </div>
@@ -517,6 +524,17 @@ function stopLiveSync(){
 
 // The Refresh from cloud button remains available as a manual backup.
 
+window.updateManualBalanceSummary=function(){
+ if(!$('balanceDate'))return;
+ const day=$('balanceDate').value||date(new Date());
+ const totalSales=sales.filter(x=>date(x.created_at)===day).reduce((sum,x)=>sum+Number(x.total||0),0);
+ const raw=$('manualExpenses').value;
+ const totalExpenses=raw===''?0:Number(raw);
+ $('manualSalesTotal').textContent=money(totalSales);
+ $('manualExpensesTotal').textContent=money(totalExpenses);
+ $('manualBalanceAfter').textContent=money(totalSales-totalExpenses);
+};
+
 window.loadManualBalance=async function(silent=false){
  if(role!=='admin'||!bid)return;
  const day=$('balanceDate')?.value||date(new Date());
@@ -529,7 +547,9 @@ window.loadManualBalance=async function(silent=false){
  dailyBalance=data||null;
  $('manualCash').value=data?.cash_amount??'';
  $('manualMpesa').value=data?.mpesa_amount??'';
+ $('manualExpenses').value=data?.total_expenses??'';
  $('balanceNote').value=data?.note??'';
+ updateManualBalanceSummary();
  $('balanceStatus').textContent=data?'Saved balance loaded for '+day+'.':'No saved balance for '+day+'. Enter amounts and save.';
 };
 
@@ -540,7 +560,10 @@ window.saveManualBalance=async function(){
  if(!day||$('manualCash').value===''||$('manualMpesa').value===''||
     !Number.isFinite(cash)||cash<0||!Number.isFinite(mpesa)||mpesa<0)
   return alert('Enter a date and valid cash and M-Pesa balances (zero is allowed).');
- const payload={business_id:bid,balance_date:day,cash_amount:cash,mpesa_amount:mpesa,note:$('balanceNote').value.trim()};
+ const expensesInput=$('manualExpenses').value;
+ const totalExpenses=expensesInput===''?0:Number(expensesInput);
+ if(!Number.isFinite(totalExpenses)||totalExpenses<0)return alert('Enter a valid total expenses amount (zero is allowed).');
+ const payload={business_id:bid,balance_date:day,cash_amount:cash,mpesa_amount:mpesa,total_expenses:totalExpenses,note:$('balanceNote').value.trim()};
  const {error}=await sb.from('daily_payment_balances').upsert(payload,{onConflict:'business_id,balance_date'});
  if(error)return alert('Could not save daily balances: '+error.message);
  dailyBalance=payload;
@@ -564,6 +587,7 @@ function render(){
   $('ds').textContent=money(s);
   $('cashToday').textContent=money(cashToday);
   $('mpesaToday').textContent=money(mpesaToday);
+  updateManualBalanceSummary();
   $('de').textContent=money(e);
   $('dg').textContent=money(s-c);
   $('dn').textContent=money(s-c-e);
