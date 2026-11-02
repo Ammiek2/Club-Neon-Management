@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Club Neon Management</title>
 <meta name="theme-color" content="#101923">
+<link rel="manifest" href="/Club-Neon-Management/manifest.webmanifest">
+<link rel="icon" href="/Club-Neon-Management/icon.svg" type="image/svg+xml">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Club Neon">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{--bg:#0c1118;--p:#151e29;--p2:#1d2937;--line:#2b3949;--txt:#edf3f8;--muted:#9aabba;--gold:#f4bd42;--green:#36c98b;--red:#ff6b6b}
 *{box-sizing:border-box}
@@ -826,6 +832,11 @@ try{
  $('message').textContent=e.message+
  '\n\nCheck that Anonymous Sign-Ins are enabled in Supabase Authentication settings.';
  loginError(e.message);
+}
+</script>
+<script>
+if('serviceWorker' in navigator){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('/Club-Neon-Management/sw.js').catch(err=>console.warn('App install support:',err)));
 }
 </script>
 </body>
