@@ -1,0 +1,19 @@
+{
+  "name": "Club Neon Management",
+  "short_name": "Club Neon",
+  "description": "Club Neon sales, stock and business management",
+  "start_url": "/Club-Neon-Management/",
+  "scope": "/Club-Neon-Management/",
+  "display": "standalone",
+  "background_color": "#0c1118",
+  "theme_color": "#101923",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/Club-Neon-Management/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
