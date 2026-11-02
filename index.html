@@ -148,6 +148,14 @@ main{padding:10px}
    <div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
    <div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
   </div>
+  <h2>Current stock position</h2>
+  <div class="cards">
+   <div class="card"><div class="muted">Total stock quantity</div><div class="metric" id="stockQtyTotal">0</div></div>
+   <div class="card"><div class="muted">Stock value (buying cost)</div><div class="metric" id="stockCostTotal">KSh 0</div></div>
+   <div class="card"><div class="muted">Potential sales value</div><div class="metric" id="stockSalesTotal">KSh 0</div></div>
+   <div class="card"><div class="muted">Potential gross profit</div><div class="metric" id="stockProfitTotal">KSh 0</div></div>
+  </div>
+  <p class="hint">Based on active products and current recorded stock. Archived products are excluded.</p>
   <div class="panel"><h2>Recent sales</h2><div id="recent" class="tablewrap"></div></div>
  </section>
 
@@ -513,6 +521,18 @@ function render(){
 
  const activeProducts=products.filter(p=>p.active!==false);
  const activeStaff=staff.filter(x=>x.active!==false);
+
+ // Calculate live stock valuation from each active product's current quantity.
+ const stockQtyTotal=activeProducts.reduce((sum,p)=>sum+Number(p.stock||0),0);
+ const stockCostTotal=activeProducts.reduce((sum,p)=>sum+Number(p.stock||0)*Number(p.buying_cost||0),0);
+ const stockSalesTotal=activeProducts.reduce((sum,p)=>sum+Number(p.stock||0)*Number(p.selling_price||0),0);
+ const stockProfitTotal=stockSalesTotal-stockCostTotal;
+ if(role==='admin'){
+  $('stockQtyTotal').textContent=stockQtyTotal.toLocaleString('en-KE');
+  $('stockCostTotal').textContent=money(stockCostTotal);
+  $('stockSalesTotal').textContent=money(stockSalesTotal);
+  $('stockProfitTotal').textContent=money(stockProfitTotal);
+ }
 
  $('sp').innerHTML=activeProducts.map(p=>`<option value="${p.id}">${esc(p.name)} — Stock: ${p.stock}</option>`).join('');
 
