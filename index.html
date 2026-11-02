@@ -150,6 +150,18 @@ main{padding:10px}
    <div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
    <div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
   </div>
+  <div class="panel" style="margin-top:14px">
+   <h2>Manual daily cash count (Admin only)</h2>
+   <p class="hint">Enter the actual amount counted. These figures are saved separately and do not change recorded sales or profit.</p>
+   <div class="grid">
+    <div class="field"><label>Balance date</label><input id="balanceDate" type="date" onchange="loadManualBalance()"></div>
+    <div class="field"><label>Actual cash in hand (KSh)</label><input id="manualCash" type="number" min="0" step=".01" placeholder="Enter counted cash"></div>
+    <div class="field"><label>Actual M-Pesa Till balance (KSh)</label><input id="manualMpesa" type="number" min="0" step=".01" placeholder="Enter Till balance"></div>
+    <div class="field"><label>Note (optional)</label><input id="balanceNote" type="text" placeholder="e.g. Closing balance"></div>
+   </div>
+   <button style="margin-top:12px" onclick="saveManualBalance()">Save daily balances</button>
+   <p class="hint" id="balanceStatus">No manual balance loaded.</p>
+  </div>
   <h2>Current stock position</h2>
   <div class="cards">
    <div class="card"><div class="muted">Total stock quantity</div><div class="metric" id="stockQtyTotal">0</div></div>
@@ -270,6 +282,7 @@ const sb=createClient(
 );
 
 let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
+let dailyBalance=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
 let refreshBusy=false;
@@ -455,6 +468,7 @@ window.refreshAll=async(silent=false)=>{
 
  if(role==='admin'){
   [products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
+  await loadManualBalance(true);
  }else{
   // Staff cannot read the admin-only staff directory. Skip it so it cannot block shared stock.
   [products,sales,moves]=res.map(x=>x.data||[]);
@@ -503,6 +517,37 @@ function stopLiveSync(){
 
 // The Refresh from cloud button remains available as a manual backup.
 
+window.loadManualBalance=async function(silent=false){
+ if(role!=='admin'||!bid)return;
+ const day=$('balanceDate')?.value||date(new Date());
+ const {data,error}=await sb.from('daily_payment_balances').select('*')
+  .eq('business_id',bid).eq('balance_date',day).maybeSingle();
+ if(error){
+  $('balanceStatus').textContent='Database setup required: '+error.message;
+  return;
+ }
+ dailyBalance=data||null;
+ $('manualCash').value=data?.cash_amount??'';
+ $('manualMpesa').value=data?.mpesa_amount??'';
+ $('balanceNote').value=data?.note??'';
+ $('balanceStatus').textContent=data?'Saved balance loaded for '+day+'.':'No saved balance for '+day+'. Enter amounts and save.';
+};
+
+window.saveManualBalance=async function(){
+ if(role!=='admin')return alert('Admin access only.');
+ const day=$('balanceDate').value;
+ const cash=Number($('manualCash').value),mpesa=Number($('manualMpesa').value);
+ if(!day||$('manualCash').value===''||$('manualMpesa').value===''||
+    !Number.isFinite(cash)||cash<0||!Number.isFinite(mpesa)||mpesa<0)
+  return alert('Enter a date and valid cash and M-Pesa balances (zero is allowed).');
+ const payload={business_id:bid,balance_date:day,cash_amount:cash,mpesa_amount:mpesa,note:$('balanceNote').value.trim()};
+ const {error}=await sb.from('daily_payment_balances').upsert(payload,{onConflict:'business_id,balance_date'});
+ if(error)return alert('Could not save daily balances: '+error.message);
+ dailyBalance=payload;
+ $('balanceStatus').textContent='Balances saved for '+day+'.';
+ notify('Daily cash and M-Pesa balances saved.');
+};
+
 function render(){
  const today=date(new Date());
  const ss=sales.filter(x=>date(x.created_at)===today);
@@ -515,6 +560,7 @@ function render(){
 
  if(role==='admin'){
   $('today').textContent=new Date().toLocaleDateString('en-KE',{dateStyle:'full'});
+  if(!$('balanceDate').value)$('balanceDate').value=today;
   $('ds').textContent=money(s);
   $('cashToday').textContent=money(cashToday);
   $('mpesaToday').textContent=money(mpesaToday);
