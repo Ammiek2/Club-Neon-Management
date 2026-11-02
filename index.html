@@ -1,7 +1,7 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Club Neon Management</title>
 <meta name="theme-color" content="#101923">
@@ -9,15 +9,15 @@
 :root{--bg:#0c1118;--p:#151e29;--p2:#1d2937;--line:#2b3949;--txt:#edf3f8;--muted:#9aabba;--gold:#f4bd42;--green:#36c98b;--red:#ff6b6b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font:15px system-ui}
-header{padding:15px 20px;background:#101923;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+header{padding:14px 18px;background:#101923;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
 .brand{font-weight:900;font-size:20px;letter-spacing:1px}
 .brand span{color:var(--gold)}
 button,input,select{font:inherit}
-button{border:0;border-radius:9px;padding:9px 12px;background:var(--gold);font-weight:700;cursor:pointer}
+button{border:0;border-radius:9px;padding:10px 13px;background:var(--gold);font-weight:700;cursor:pointer}
 button.secondary{background:var(--p2);color:var(--txt);border:1px solid var(--line)}
 button.danger{background:#642c35;color:white}
 button.small{padding:6px 9px;font-size:12px;margin:2px}
-input,select{width:100%;padding:10px;background:#0e1721;color:white;border:1px solid var(--line);border-radius:8px}
+input,select{width:100%;padding:11px;background:#0e1721;color:white;border:1px solid var(--line);border-radius:8px}
 .layout{display:grid;grid-template-columns:200px 1fr;min-height:90vh}
 nav{background:#101923;padding:12px}
 nav button{display:block;width:100%;text-align:left;background:transparent;color:var(--muted);margin-bottom:4px}
@@ -38,145 +38,209 @@ td,th{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:
 th{color:var(--muted)}
 .good{color:var(--green)}
 .error{color:var(--red);white-space:pre-wrap}
-.statusline{padding:8px 10px;border-radius:8px;background:#1d2937;margin:8px 0}
+.statusline{padding:8px 10px;border-radius:8px;background:var(--p2);margin:8px 0}
+#loginScreen{position:fixed;inset:0;background:#080d13;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+.loginbox{width:100%;max-width:440px;background:var(--p);border:1px solid var(--line);border-radius:18px;padding:24px}
+.loginbox h1{margin-top:0}
+.loginbox button{width:100%;margin-top:10px}
+.loginbox .secondary{margin-top:8px}
+.loginbox input,.loginbox select{margin:5px 0 12px}
+.loginmessage{min-height:22px;color:var(--red);font-size:13px;white-space:pre-wrap}
+.top-actions{display:flex;align-items:center;gap:8px}
 @media(max-width:800px){
 .layout{grid-template-columns:1fr}
-nav{display:flex;overflow:auto;position:sticky;top:70px;z-index:4;gap:4px}
+nav{display:flex;overflow:auto;position:sticky;top:65px;z-index:4;gap:4px}
 nav button{white-space:nowrap;width:auto}
 .cards{grid-template-columns:repeat(2,1fr)}
 main{padding:10px}
 }
-@media(max-width:480px){.grid{grid-template-columns:1fr}}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
-<header>
-<div>
-<div class="brand">CLUB <span>NEON</span></div>
-<div class="muted">ONLINE BUSINESS MANAGER • KENYA</div>
+
+<div id="loginScreen">
+ <div class="loginbox">
+  <div class="brand">CLUB <span>NEON</span></div>
+  <p class="muted">SECURE STAFF AND ADMIN ACCESS</p>
+
+  <div id="loginChoices">
+   <h1>Welcome</h1>
+   <p class="hint">Choose how you want to access the system.</p>
+   <button onclick="showAdminLogin()">ADMIN ACCESS</button>
+   <button class="secondary" onclick="showStaffLogin()">STAFF ACCESS</button>
+  </div>
+
+  <div id="adminLogin" class="hidden">
+   <h2>Admin login</h2>
+   <label class="hint">Admin PIN</label>
+   <input id="adminPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter admin PIN">
+   <button onclick="loginAdmin()">Unlock admin</button>
+   <button class="secondary" onclick="backLogin()">Back</button>
+  </div>
+
+  <div id="staffLogin" class="hidden">
+   <h2>Staff login</h2>
+   <label class="hint">Select your name</label>
+   <select id="staffChoice"><option value="">Loading staff...</option></select>
+   <label class="hint">Your PIN</label>
+   <input id="staffPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter your PIN">
+   <button onclick="loginStaff()">Login as staff</button>
+   <button class="secondary" onclick="showEnrol()">First time? Create your PIN</button>
+   <button class="secondary" onclick="backLogin()">Back</button>
+  </div>
+
+  <div id="staffEnrol" class="hidden">
+   <h2>Create staff PIN</h2>
+   <p class="hint">Select your name and use the staff setup code supplied by the administrator.</p>
+   <label class="hint">Your name</label>
+   <select id="enrolStaff"><option value="">Select staff</option></select>
+   <label class="hint">Staff setup code</label>
+   <input id="setupCode" type="password" inputmode="numeric" maxlength="8" value="12345678">
+   <label class="hint">Create your personal PIN (4–8 digits)</label>
+   <input id="newStaffPin" type="password" inputmode="numeric" maxlength="8" placeholder="Create PIN">
+   <button onclick="createStaffPin()">Create PIN and login</button>
+   <button class="secondary" onclick="showStaffLogin()">Back to staff login</button>
+  </div>
+
+  <p id="loginMessage" class="loginmessage"></p>
+ </div>
 </div>
-<div><span id="status" class="good">Connecting...</span></div>
+
+<header>
+ <div>
+  <div class="brand">CLUB <span>NEON</span></div>
+  <div class="muted">ONLINE BUSINESS MANAGER • KENYA</div>
+ </div>
+ <div class="top-actions">
+  <span id="status" class="good">Locked</span>
+  <button class="secondary small" onclick="logout()">Lock</button>
+ </div>
 </header>
 
 <div class="layout">
-<nav>
-<button class="active" data-page="dashboard">Dashboard</button>
-<button data-page="sales">Sales</button>
-<button data-page="stock">Stock & products</button>
-<button data-page="expenses">Expenses</button>
-<button data-page="reports">Reports</button>
-<button data-page="staff">Staff</button>
-<button data-page="backup">Backup</button>
+<nav id="mainNav" class="hidden">
+ <button class="active" data-page="dashboard" data-admin="1">Dashboard</button>
+ <button data-page="sales">Sales</button>
+ <button data-page="stock">Stock & products</button>
+ <button data-page="expenses" data-admin="1">Expenses</button>
+ <button data-page="reports" data-admin="1">Reports</button>
+ <button data-page="staff" data-admin="1">Staff & PINs</button>
+ <button data-page="backup" data-admin="1">Backup</button>
 </nav>
 
-<main>
-<p id="message" class="hint">Connecting to Club Neon cloud...</p>
-<div id="actionMessage" class="statusline hidden"></div>
+<main id="appMain" class="hidden">
+ <p id="message" class="hint">Connecting to Club Neon cloud...</p>
+ <div id="actionMessage" class="statusline hidden"></div>
 
-<section id="dashboard" class="page">
-<h1>Business overview</h1>
-<p class="hint" id="today"></p>
-<div class="cards">
-<div class="card"><div class="muted">Today's sales</div><div class="metric" id="ds">KSh 0</div></div>
-<div class="card"><div class="muted">Expenses</div><div class="metric" id="de">KSh 0</div></div>
-<div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
-<div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
-</div>
-<div class="panel"><h2>Recent sales</h2><div id="recent" class="tablewrap"></div></div>
-</section>
+ <section id="dashboard" class="page">
+  <h1>Business overview</h1>
+  <p class="hint" id="today"></p>
+  <div class="cards">
+   <div class="card"><div class="muted">Today's sales</div><div class="metric" id="ds">KSh 0</div></div>
+   <div class="card"><div class="muted">Expenses</div><div class="metric" id="de">KSh 0</div></div>
+   <div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
+   <div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
+  </div>
+  <div class="panel"><h2>Recent sales</h2><div id="recent" class="tablewrap"></div></div>
+ </section>
 
-<section id="sales" class="page hidden">
-<h1>Record sale</h1>
-<div class="panel">
-<div class="grid">
-<div class="field"><label>Product</label><select id="sp"></select></div>
-<div class="field"><label>Quantity</label><input id="sq" type="number" min="1" value="1"></div>
-<div class="field"><label>Unit selling price</label><input id="sprice" type="number" min="0" step=".01"></div>
-<div class="field"><label>Payment</label><select id="pay"><option>Cash</option><option>M-Pesa</option></select></div>
-<div class="field"><label>Served by</label><select id="sstaff"></select></div>
-<div class="field"><label>Note</label><input id="snote"></div>
-</div>
-<div class="actions"><button onclick="recordSale()">Save sale</button></div>
-<p id="smsg" class="hint"></p>
-</div>
-<div class="panel"><h2>Sales history</h2><p class="hint">Use Edit to correct an entry. Delete returns the sold quantity to stock.</p><div id="salesTable" class="tablewrap"></div></div>
-</section>
+ <section id="sales" class="page hidden">
+  <h1>Record sale</h1>
+  <div class="panel">
+   <div class="grid">
+    <div class="field"><label>Product</label><select id="sp"></select></div>
+    <div class="field"><label>Quantity</label><input id="sq" type="number" min="1" value="1"></div>
+    <div class="field"><label>Unit selling price</label><input id="sprice" type="number" min="0" step=".01"></div>
+    <div class="field"><label>Payment</label><select id="pay"><option>Cash</option><option>M-Pesa</option></select></div>
+    <div class="field"><label>Served by</label><select id="sstaff"></select></div>
+    <div class="field"><label>Note</label><input id="snote"></div>
+   </div>
+   <div class="actions"><button onclick="recordSale()">Save sale</button></div>
+   <p id="smsg" class="hint"></p>
+  </div>
+  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock.</p><div id="salesTable" class="tablewrap"></div></div>
+ </section>
 
-<section id="stock" class="page hidden">
-<h1>Stock & products</h1>
-<div class="panel">
-<h2>Add product / opening stock</h2>
-<div class="grid">
-<div class="field"><label>Product name</label><input id="pn" placeholder="Guinness, Tusker, etc."></div>
-<div class="field"><label>Category</label><select id="pc"><option>Beer</option><option>Spirits</option><option>Soft drinks</option><option>Water</option><option>Wines</option><option>Other</option></select></div>
-<div class="field"><label>Buying cost</label><input id="cost" type="number" min="0" step=".01"></div>
-<div class="field"><label>Selling price</label><input id="sell" type="number" min="0" step=".01"></div>
-<div class="field"><label>Opening quantity</label><input id="qty" type="number" min="0" value="0"></div>
-<div class="field"><label>Low-stock alert</label><input id="alert" type="number" min="0" value="5"></div>
-</div>
-<div class="actions"><button onclick="saveProduct()">Save product</button></div>
-</div>
-<div class="panel"><h2>All products</h2><p class="hint">Edit product details, correct stock, or archive products you no longer sell. Archived products disappear from sale selections.</p><div id="stockTable" class="tablewrap"></div></div>
-<div class="panel"><h2>Stock-in history</h2><div id="stockHistory" class="tablewrap"></div></div>
-</section>
+ <section id="stock" class="page hidden">
+  <h1>Stock & products</h1>
+  <div class="panel">
+   <h2>Add product / opening stock</h2>
+   <div class="grid">
+    <div class="field"><label>Product name</label><input id="pn" placeholder="Guinness, Tusker, etc."></div>
+    <div class="field"><label>Category</label><select id="pc"><option>Beer</option><option>Spirits</option><option>Soft drinks</option><option>Water</option><option>Wines</option><option>Other</option></select></div>
+    <div class="field"><label>Buying cost</label><input id="cost" type="number" min="0" step=".01"></div>
+    <div class="field"><label>Selling price</label><input id="sell" type="number" min="0" step=".01"></div>
+    <div class="field"><label>Opening quantity</label><input id="qty" type="number" min="0" value="0"></div>
+    <div class="field"><label>Low-stock alert</label><input id="alert" type="number" min="0" value="5"></div>
+   </div>
+   <div class="actions"><button onclick="saveProduct()">Save product</button></div>
+  </div>
+  <div class="panel"><h2>All products</h2><p class="hint">Edit details, correct stock, or archive products.</p><div id="stockTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>Stock-in history</h2><div id="stockHistory" class="tablewrap"></div></div>
+ </section>
 
-<section id="expenses" class="page hidden">
-<h1>Expenses</h1>
-<div class="panel">
-<div class="grid">
-<div class="field"><label>Description</label><input id="edesc"></div>
-<div class="field"><label>Category</label><select id="ecat"><option>Staff wages</option><option>DJ / entertainment</option><option>Utilities</option><option>Transport</option><option>Rent</option><option>Repairs</option><option>Other</option></select></div>
-<div class="field"><label>Amount</label><input id="eamount" type="number" min=".01" step=".01"></div>
-<div class="field"><label>Paid by</label><select id="epay"><option>Cash</option><option>M-Pesa</option></select></div>
-</div>
-<div class="actions"><button onclick="addExpense()">Save expense</button></div>
-</div>
-<div class="panel"><h2>Expense history</h2><div id="expenseTable" class="tablewrap"></div></div>
-</section>
+ <section id="expenses" class="page hidden">
+  <h1>Expenses</h1>
+  <div class="panel">
+   <div class="grid">
+    <div class="field"><label>Description</label><input id="edesc"></div>
+    <div class="field"><label>Category</label><select id="ecat"><option>Staff wages</option><option>DJ / entertainment</option><option>Utilities</option><option>Transport</option><option>Rent</option><option>Repairs</option><option>Other</option></select></div>
+    <div class="field"><label>Amount</label><input id="eamount" type="number" min=".01" step=".01"></div>
+    <div class="field"><label>Paid by</label><select id="epay"><option>Cash</option><option>M-Pesa</option></select></div>
+   </div>
+   <div class="actions"><button onclick="addExpense()">Save expense</button></div>
+  </div>
+  <div class="panel"><h2>Expense history</h2><div id="expenseTable" class="tablewrap"></div></div>
+ </section>
 
-<section id="reports" class="page hidden">
-<h1>Reports</h1>
-<div class="panel">
-<div class="grid">
-<div class="field"><label>From</label><input id="from" type="date"></div>
-<div class="field"><label>To</label><input id="to" type="date"></div>
-</div>
-<div class="actions">
-<button onclick="renderReports()">Run report</button>
-<button class="secondary" onclick="exportCSV()">Export CSV</button>
-</div>
-</div>
-<div class="cards">
-<div class="card">Sales<div class="metric" id="rs">0</div></div>
-<div class="card">Cost of goods<div class="metric" id="rc">0</div></div>
-<div class="card">Gross profit<div class="metric" id="rg">0</div></div>
-<div class="card">Expenses<div class="metric" id="re">0</div></div>
-</div>
-<div class="panel"><h2>Net result</h2><div class="metric" id="rn">0</div><div id="productReport" class="tablewrap"></div></div>
-</section>
+ <section id="reports" class="page hidden">
+  <h1>Reports</h1>
+  <div class="panel">
+   <div class="grid">
+    <div class="field"><label>From</label><input id="from" type="date"></div>
+    <div class="field"><label>To</label><input id="to" type="date"></div>
+   </div>
+   <div class="actions"><button onclick="renderReports()">Run report</button><button class="secondary" onclick="exportCSV()">Export CSV</button></div>
+  </div>
+  <div class="cards">
+   <div class="card">Sales<div class="metric" id="rs">0</div></div>
+   <div class="card">Cost of goods<div class="metric" id="rc">0</div></div>
+   <div class="card">Gross profit<div class="metric" id="rg">0</div></div>
+   <div class="card">Expenses<div class="metric" id="re">0</div></div>
+  </div>
+  <div class="panel"><h2>Net result</h2><div class="metric" id="rn">0</div><div id="productReport" class="tablewrap"></div></div>
+ </section>
 
-<section id="staff" class="page hidden">
-<h1>Staff</h1>
-<div class="panel">
-<div class="grid">
-<div class="field"><label>Name</label><input id="staffName"></div>
-<div class="field"><label>Role</label><select id="staffRole"><option>Cashier</option><option>Waiter</option><option>Bartender</option><option>Manager</option><option>DJ</option><option>Other</option></select></div>
-</div>
-<div class="actions"><button onclick="addStaff()">Add staff</button></div>
-</div>
-<div class="panel"><h2>Staff list</h2><div id="staffTable" class="tablewrap"></div></div>
-</section>
+ <section id="staff" class="page hidden">
+  <h1>Staff management</h1>
+  <div class="panel">
+   <h2>Add staff member</h2>
+   <div class="grid">
+    <div class="field"><label>Name</label><input id="staffName"></div>
+    <div class="field"><label>Role</label><select id="staffRole"><option>Cashier</option><option>Waiter</option><option>Bartender</option><option>Manager</option><option>DJ</option><option>Other</option></select></div>
+   </div>
+   <div class="actions"><button onclick="addStaff()">Add staff</button></div>
+  </div>
+  <div class="panel"><h2>Staff list and PIN control</h2><p class="hint">Reset a staff member's PIN when they forget it. They can then use the new PIN to log in.</p><div id="staffTable" class="tablewrap"></div></div>
+  <div class="panel">
+   <h2>Change admin PIN</h2>
+   <div class="field"><label>New admin PIN (4–8 digits)</label><input id="adminNewPin" type="password" inputmode="numeric" maxlength="8"></div>
+   <div class="actions"><button onclick="changeAdminPin()">Update admin PIN</button></div>
+  </div>
+  <div class="panel">
+   <h2>Staff setup code</h2>
+   <p class="hint">The current staff setup code is 12345678. Keep it private. Anyone who knows it can create a staff PIN for an active staff account.</p>
+  </div>
+ </section>
 
-<section id="backup" class="page hidden">
-<h1>Backup</h1>
-<div class="panel">
-<p class="hint">Download a copy of cloud records or refresh from the database.</p>
-<div class="actions">
-<button onclick="backup()">Download JSON backup</button>
-<button class="secondary" onclick="refreshAll()">Refresh from cloud</button>
-</div>
-</div>
-</section>
+ <section id="backup" class="page hidden">
+  <h1>Backup</h1>
+  <div class="panel">
+   <p class="hint">Download a copy of cloud records or refresh from the database.</p>
+   <div class="actions"><button onclick="backup()">Download JSON backup</button><button class="secondary" onclick="refreshAll()">Refresh from cloud</button></div>
+  </div>
+ </section>
 </main>
 </div>
 
@@ -184,407 +248,574 @@ main{padding:10px}
 import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const sb=createClient(
-'https://scrrumwnclojwgedjzah.supabase.co',
-'sb_publishable_4iSjmwe4ngah8LGJt-V_vg_nffRN9Cf'
+ 'https://scrrumwnclojwgedjzah.supabase.co',
+ 'sb_publishable_4iSjmwe4ngah8LGJt-V_vg_nffRN9Cf',
+ {auth:{autoRefreshToken:true,persistSession:true}}
 );
 
 let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
+let role=null,currentStaffId=null,currentStaffName=null;
+let staffDirectory=[];
+
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const date=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:'Africa/Nairobi'});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function notify(message,error=false){
-$('actionMessage').textContent=message;
-$('actionMessage').classList.remove('hidden');
-$('actionMessage').style.color=error?'#ff6b6b':'#36c98b';
-setTimeout(()=>$('actionMessage').classList.add('hidden'),5000);
+ $('actionMessage').textContent=message;
+ $('actionMessage').classList.remove('hidden');
+ $('actionMessage').style.color=error?'#ff6b6b':'#36c98b';
 }
 
 function tbl(headers,rows){
-return rows.length
-?'<table><thead><tr>'+headers.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'
-:'<p class="hint">No records yet.</p>';
+ return rows.length
+ ?'<table><thead><tr>'+headers.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table>'
+ :'<p class="hint">No records yet.</p>';
 }
 
-async function startApp(){
-$('status').textContent='Connecting...';
-const {data,error}=await sb.rpc('club_neon_public_business_id');
-if(error)throw error;
-if(!data)throw new Error('No Club Neon business was found.');
-bid=data;
-await refreshAll();
-$('status').textContent='Cloud connected';
-$('message').textContent='Club Neon is connected. Records are shared through the cloud.';
+function loginError(message){$('loginMessage').textContent=message;}
+function hideLoginPanels(){
+ ['loginChoices','adminLogin','staffLogin','staffEnrol'].forEach(x=>$(x).classList.add('hidden'));
 }
+window.backLogin=()=>{
+ hideLoginPanels();$('loginChoices').classList.remove('hidden');loginError('');
+};
+window.showAdminLogin=()=>{
+ hideLoginPanels();$('adminLogin').classList.remove('hidden');$('adminPin').value='';loginError('');
+};
+window.showStaffLogin=()=>{
+ hideLoginPanels();$('staffLogin').classList.remove('hidden');$('staffPin').value='';loginError('');
+};
+window.showEnrol=()=>{
+ hideLoginPanels();$('staffEnrol').classList.remove('hidden');$('newStaffPin').value='';loginError('');
+};
+
+async function initialise(){
+ $('status').textContent='Connecting...';
+
+ let {data:{session},error}=await sb.auth.getSession();
+ if(error)throw error;
+
+ if(!session){
+  const result=await sb.auth.signInAnonymously();
+  if(result.error)throw result.error;
+ }
+
+ // Clear any previous unlocked PIN session whenever the app is opened.
+ await sb.rpc('club_neon_pin_logout');
+
+ const b=await sb.rpc('club_neon_public_business_id');
+ if(b.error)throw b.error;
+ if(!b.data)throw new Error('No Club Neon business was found.');
+ bid=b.data;
+
+ await loadStaffDirectory();
+ $('status').textContent='Locked';
+ $('message').textContent='Cloud connected. Enter your PIN to continue.';
+}
+
+async function loadStaffDirectory(){
+ const {data,error}=await sb.rpc('club_neon_staff_directory');
+ if(error)throw error;
+ staffDirectory=data||[];
+
+ const options='<option value="">Select your name</option>'+
+ staffDirectory.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+
+ $('staffChoice').innerHTML=options;
+ $('enrolStaff').innerHTML=options;
+}
+
+async function checkRole(){
+ const {data,error}=await sb.rpc('club_neon_current_role');
+ if(error)throw error;
+ return data;
+}
+
+window.loginAdmin=async()=>{
+ const pin=$('adminPin').value.trim();
+ if(!/^\d{4,8}$/.test(pin))return loginError('Enter a valid 4–8 digit PIN.');
+ loginError('Checking PIN...');
+ const {error}=await sb.rpc('club_neon_unlock_admin',{p_pin:pin});
+ if(error)return loginError(error.message);
+ try{
+  const r=await checkRole();
+  if(r!=='admin')throw new Error('Admin access was not confirmed.');
+  role='admin';currentStaffId=null;currentStaffName='Administrator';
+  await enterApp();
+ }catch(e){loginError(e.message);}
+};
+
+window.loginStaff=async()=>{
+ const id=$('staffChoice').value;
+ const pin=$('staffPin').value.trim();
+ if(!id)return loginError('Select your staff name.');
+ if(!/^\d{4,8}$/.test(pin))return loginError('Enter your 4–8 digit PIN.');
+ loginError('Checking PIN...');
+ const {error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
+ if(error)return loginError(error.message);
+ try{
+  const r=await checkRole();
+  if(r!=='staff')throw new Error('Staff access was not confirmed.');
+  const person=staffDirectory.find(x=>x.id===id);
+  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+  await enterApp();
+ }catch(e){loginError(e.message);}
+};
+
+window.createStaffPin=async()=>{
+ const id=$('enrolStaff').value;
+ const code=$('setupCode').value.trim();
+ const pin=$('newStaffPin').value.trim();
+ if(!id)return loginError('Select your staff name.');
+ if(!/^\d{4,8}$/.test(pin))return loginError('Your PIN must contain 4–8 digits.');
+ if(!code)return loginError('Enter the staff setup code.');
+ loginError('Creating your PIN...');
+ const {error}=await sb.rpc('club_neon_enrol_staff',{
+  p_staff_id:id,p_setup_code:code,p_pin:pin
+ });
+ if(error)return loginError(error.message);
+ try{
+  const r=await checkRole();
+  if(r!=='staff')throw new Error('Staff access was not confirmed.');
+  const person=staffDirectory.find(x=>x.id===id);
+  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+  await enterApp();
+ }catch(e){loginError(e.message);}
+};
+
+async function enterApp(){
+ $('loginScreen').classList.add('hidden');
+ $('mainNav').classList.remove('hidden');
+ $('appMain').classList.remove('hidden');
+ $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
+
+ document.querySelectorAll('[data-admin="1"]').forEach(b=>{
+  b.classList.toggle('hidden',role!=='admin');
+ });
+
+ document.querySelectorAll('nav button').forEach(b=>{
+  b.onclick=()=>go(b.dataset.page);
+ });
+
+ await refreshAll();
+ go(role==='admin'?'dashboard':'sales');
+ $('message').textContent='Welcome '+currentStaffName+'. Your access is active.';
+}
+
+window.logout=async()=>{
+ try{await sb.rpc('club_neon_pin_logout');}catch(e){}
+ role=null;currentStaffId=null;currentStaffName=null;
+ products=[];sales=[];expenses=[];staff=[];moves=[];
+ $('mainNav').classList.add('hidden');
+ $('appMain').classList.add('hidden');
+ $('loginScreen').classList.remove('hidden');
+ $('status').textContent='Locked';
+ $('message').textContent='Enter your PIN to continue.';
+ backLogin();
+};
 
 window.refreshAll=async()=>{
-if(!bid)return;
-$('status').textContent='Refreshing...';
-const names=['products','sales','expenses','staff','stock_movements'];
-const res=await Promise.all(names.map(t=>sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false})));
-for(let i=0;i<res.length;i++){
-if(res[i].error){
-$('status').textContent='Database error';
-$('message').textContent=names[i]+': '+res[i].error.message;
-return;
-}
-}
-[products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
-render();
-$('status').textContent='Cloud connected';
+ if(!bid||!role)return;
+ $('status').textContent='Refreshing...';
+
+ const names=role==='admin'
+ ?['products','sales','expenses','staff','stock_movements']
+ :['products','sales','staff','stock_movements'];
+
+ const res=await Promise.all(names.map(t=>
+  sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false})
+ ));
+
+ for(let i=0;i<res.length;i++){
+  if(res[i].error){
+   $('status').textContent='Database error';
+   $('message').textContent=names[i]+': '+res[i].error.message;
+   return;
+  }
+ }
+
+ if(role==='admin'){
+  [products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
+ }else{
+  [products,sales,staff,moves]=res.map(x=>x.data||[]);
+  expenses=[];
+ }
+
+ render();
+ $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
 };
 
 function render(){
-const today=date(new Date());
-const ss=sales.filter(x=>date(x.created_at)===today);
-const ee=expenses.filter(x=>date(x.created_at)===today);
-const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
-const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
-const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
+ const today=date(new Date());
+ const ss=sales.filter(x=>date(x.created_at)===today);
+ const ee=expenses.filter(x=>date(x.created_at)===today);
+ const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
+ const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
+ const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
 
-$('today').textContent=new Date().toLocaleDateString('en-KE',{dateStyle:'full'});
-$('ds').textContent=money(s);
-$('de').textContent=money(e);
-$('dg').textContent=money(s-c);
-$('dn').textContent=money(s-c-e);
+ if(role==='admin'){
+  $('today').textContent=new Date().toLocaleDateString('en-KE',{dateStyle:'full'});
+  $('ds').textContent=money(s);
+  $('de').textContent=money(e);
+  $('dg').textContent=money(s-c);
+  $('dn').textContent=money(s-c-e);
+  $('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff'],
+   ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td></tr>`));
+ }
 
-const activeProducts=products.filter(p=>p.active!==false);
-const activeStaff=staff.filter(x=>x.active!==false);
+ const activeProducts=products.filter(p=>p.active!==false);
+ const activeStaff=staff.filter(x=>x.active!==false);
 
-$('sp').innerHTML=activeProducts.map(p=>`<option value="${p.id}">${esc(p.name)} — Stock: ${p.stock}</option>`).join('');
-$('sstaff').innerHTML='<option value="">Owner</option>'+activeStaff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ $('sp').innerHTML=activeProducts.map(p=>`<option value="${p.id}">${esc(p.name)} — Stock: ${p.stock}</option>`).join('');
 
-$('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff'],
-ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td></tr>`));
+ if(role==='staff'){
+  $('sstaff').innerHTML=`<option value="${currentStaffId}">${esc(currentStaffName)}</option>`;
+  $('sstaff').disabled=true;
+ }else{
+  $('sstaff').disabled=false;
+  $('sstaff').innerHTML='<option value="">Owner</option>'+activeStaff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ }
 
-$('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Alert','Status','Actions'],
-products.map(p=>`<tr>
-<td>${esc(p.name)}</td><td>${esc(p.category)}</td>
-<td>${money(p.buying_cost)}</td><td>${money(p.selling_price)}</td>
-<td>${p.stock}</td><td>${p.low_stock_alert}</td>
-<td>${p.active===false?'Archived':'Active'}</td>
-<td>
-<button class="secondary small" onclick="editProduct('${p.id}')">Edit</button>
-<button class="secondary small" onclick="adjustStock('${p.id}')">Correct stock</button>
-<button class="${p.active===false?'secondary':'danger'} small" onclick="toggleProduct('${p.id}')">${p.active===false?'Restore':'Archive'}</button>
-</td></tr>`));
+ $('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Alert','Status','Actions'],
+ products.map(p=>`<tr>
+ <td>${esc(p.name)}</td><td>${esc(p.category)}</td>
+ <td>${money(p.buying_cost)}</td><td>${money(p.selling_price)}</td>
+ <td>${p.stock}</td><td>${p.low_stock_alert}</td>
+ <td>${p.active===false?'Archived':'Active'}</td>
+ <td><button class="secondary small" onclick="editProduct('${p.id}')">Edit</button>
+ <button class="secondary small" onclick="adjustStock('${p.id}')">Correct stock</button>
+ <button class="${p.active===false?'secondary':'danger'} small" onclick="toggleProduct('${p.id}')">${p.active===false?'Restore':'Archive'}</button>
+ <button class="secondary small" onclick="restock('${p.id}')">Stock in</button></td></tr>`));
 
-$('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
-sales.map(x=>`<tr>
-<td>${new Date(x.created_at).toLocaleString()}</td>
-<td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td>
-<td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td>
-<td><button class="secondary small" onclick="editSale('${x.id}')">Edit</button>
-<button class="danger small" onclick="deleteSale('${x.id}')">Delete</button></td>
-</tr>`));
+ $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
+ sales.map(x=>`<tr>
+ <td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td>
+ <td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td>
+ <td>${esc(x.staff_name)}</td>
+ <td><button class="secondary small" onclick="editSale('${x.id}')">Edit</button>
+ <button class="danger small" onclick="deleteSale('${x.id}')">Delete</button></td></tr>`));
 
-$('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment','Actions'],
-expenses.map(x=>`<tr>
-<td>${new Date(x.created_at).toLocaleString()}</td>
-<td>${esc(x.description)}</td><td>${esc(x.category)}</td>
-<td>${money(x.amount)}</td><td>${esc(x.payment_method)}</td>
-<td><button class="secondary small" onclick="editExpense('${x.id}')">Edit</button>
-<button class="danger small" onclick="deleteExpense('${x.id}')">Delete</button></td>
-</tr>`));
+ if(role==='admin'){
+  $('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment','Actions'],
+  expenses.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  <td>${esc(x.description)}</td><td>${esc(x.category)}</td><td>${money(x.amount)}</td>
+  <td>${esc(x.payment_method)}</td><td>
+  <button class="secondary small" onclick="editExpense('${x.id}')">Edit</button>
+  <button class="danger small" onclick="deleteExpense('${x.id}')">Delete</button></td></tr>`));
 
-$('staffTable').innerHTML=tbl(['Name','Role','Status','Actions'],
-staff.map(x=>`<tr>
-<td>${esc(x.name)}</td><td>${esc(x.role)}</td>
-<td>${x.active===false?'Inactive':'Active'}</td>
-<td><button class="secondary small" onclick="editStaff('${x.id}')">Edit</button>
-<button class="secondary small" onclick="toggleStaff('${x.id}')">${x.active===false?'Activate':'Deactivate'}</button></td>
-</tr>`));
+  $('staffTable').innerHTML=tbl(['Name','Role','Status','Actions'],
+  staff.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.role)}</td>
+  <td>${x.active===false?'Inactive':'Active'}</td><td>
+  <button class="secondary small" onclick="editStaff('${x.id}')">Edit</button>
+  <button class="secondary small" onclick="toggleStaff('${x.id}')">${x.active===false?'Activate':'Deactivate'}</button>
+  <button class="secondary small" onclick="resetStaffPin('${x.id}')">Reset PIN</button></td></tr>`));
+ }
 
-$('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
-moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
-<td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
-<td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
+ $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
+ moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+ <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
+ <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
 }
 
 window.recordSale=async()=>{
-const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
-const q=Number($('sq').value);
-const price=Number($('sprice').value||p?.selling_price);
-const sid=$('sstaff').value;
-const st=staff.find(x=>x.id===sid);
-if(!p||!Number.isInteger(q)||q<1)return alert('Choose a product and valid quantity.');
-if(!Number.isFinite(price)||price<0)return alert('Enter a valid selling price.');
-if(q>p.stock)return alert('Not enough stock. Available: '+p.stock);
+ const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
+ const q=Number($('sq').value);
+ const price=Number($('sprice').value||p?.selling_price);
+ const sid=role==='staff'?currentStaffId:$('sstaff').value;
+ const st=staff.find(x=>x.id===sid);
 
-const {error}=await sb.rpc('club_neon_record_sale',{
-p_business:bid,p_product:p.id,p_quantity:q,p_unit_price:price,
-p_payment:$('pay').value,p_staff_id:sid||null,
-p_staff_name:st?.name||'Owner',p_note:$('snote').value||null
-});
-if(error)alert(error.message);
-else{
-$('sq').value=1;$('sprice').value='';$('snote').value='';
-$('smsg').textContent='Sale saved successfully.';
-notify('New sale saved. Stock and product selections refreshed.');
-await refreshAll();
-}
+ if(!p||!Number.isInteger(q)||q<1)return alert('Choose a product and valid quantity.');
+ if(!Number.isFinite(price)||price<0)return alert('Enter a valid selling price.');
+ if(q>p.stock)return alert('Not enough stock. Available: '+p.stock);
+
+ const {error}=await sb.rpc('club_neon_record_sale',{
+  p_business:bid,p_product:p.id,p_quantity:q,p_unit_price:price,
+  p_payment:$('pay').value,p_staff_id:sid||null,
+  p_staff_name:role==='staff'?currentStaffName:(st?.name||'Owner'),
+  p_note:$('snote').value||null
+ });
+ if(error)alert(error.message);
+ else{
+  $('sq').value=1;$('sprice').value='';$('snote').value='';
+  $('smsg').textContent='Sale saved successfully.';
+  notify('New sale saved. Stock and product selections refreshed.');
+  await refreshAll();
+ }
 };
 
 window.editSale=async id=>{
-const x=sales.find(s=>s.id===id);
-if(!x)return;
-const active=products.filter(p=>p.active!==false);
-const names=active.map(p=>p.name);
-const choice=prompt('Enter the corrected product name:\n'+names.join(', '),x.product_name);
-if(choice===null)return;
-const p=active.find(z=>z.name.toLowerCase()===choice.trim().toLowerCase());
-if(!p)return alert('Product name not found. Use the exact name shown.');
-const q=Number(prompt('Correct quantity:',x.quantity));
-if(!Number.isInteger(q)||q<1)return alert('Invalid quantity.');
-const price=Number(prompt('Correct unit selling price:',x.unit_price));
-if(!Number.isFinite(price)||price<0)return alert('Invalid selling price.');
-const payment=prompt('Payment method (Cash or M-Pesa):',x.payment_method);
-if(payment===null)return;
-const staffName=prompt('Staff name (or Owner):',x.staff_name||'Owner');
-if(staffName===null)return;
-const st=staff.find(a=>a.name.toLowerCase()===staffName.trim().toLowerCase());
-const note=prompt('Sale note:',x.note||'');
-if(note===null)return;
-
-if(!confirm('Save these corrections to this sale?'))return;
-const {error}=await sb.rpc('club_neon_edit_sale',{
-p_business:bid,p_sale_id:id,p_product:p.id,p_quantity:q,
-p_unit_price:price,p_payment:payment,
-p_staff_id:st?.id||null,p_staff_name:st?.name||staffName,p_note:note||null
-});
-if(error)alert(error.message);
-else{notify('Sale EDITED. Stock, reports and product selections refreshed.');await refreshAll();}
+ const x=sales.find(s=>s.id===id);if(!x)return;
+ const active=products.filter(p=>p.active!==false);
+ const choice=prompt('Enter the corrected product name:\n'+active.map(p=>p.name).join(', '),x.product_name);
+ if(choice===null)return;
+ const p=active.find(z=>z.name.toLowerCase()===choice.trim().toLowerCase());
+ if(!p)return alert('Product name not found.');
+ const q=Number(prompt('Correct quantity:',x.quantity));
+ if(!Number.isInteger(q)||q<1)return alert('Invalid quantity.');
+ const price=Number(prompt('Correct unit selling price:',x.unit_price));
+ if(!Number.isFinite(price)||price<0)return alert('Invalid selling price.');
+ const payment=prompt('Payment method (Cash or M-Pesa):',x.payment_method);
+ if(payment===null)return;
+ const staffName=role==='staff'?currentStaffName:prompt('Staff name (or Owner):',x.staff_name||'Owner');
+ if(staffName===null)return;
+ const st=staff.find(a=>a.name.toLowerCase()===String(staffName).trim().toLowerCase());
+ const note=prompt('Sale note:',x.note||'');
+ if(note===null)return;
+ if(!confirm('Save these corrections to this sale?'))return;
+ const {error}=await sb.rpc('club_neon_edit_sale',{
+  p_business:bid,p_sale_id:id,p_product:p.id,p_quantity:q,
+  p_unit_price:price,p_payment:payment,
+  p_staff_id:role==='staff'?currentStaffId:(st?.id||null),
+  p_staff_name:staffName,p_note:note||null
+ });
+ if(error)alert(error.message);
+ else{notify('Sale EDITED. Stock and reports refreshed.');await refreshAll();}
 };
 
 window.deleteSale=async id=>{
-const x=sales.find(s=>s.id===id);
-if(!x)return;
-if(!confirm(`Delete sale of ${x.quantity} × ${x.product_name} for ${money(x.total)}?\n\nThe sold quantity will be returned to stock.`))return;
-const {error}=await sb.rpc('club_neon_delete_sale',{p_business:bid,p_sale_id:id});
-if(error)alert(error.message);
-else{notify('Sale DELETED. Stock and reports have been recalculated.');await refreshAll();}
+ const x=sales.find(s=>s.id===id);if(!x)return;
+ if(!confirm(`Delete sale of ${x.quantity} × ${x.product_name} for ${money(x.total)}? Sold quantity will return to stock.`))return;
+ const {error}=await sb.rpc('club_neon_delete_sale',{p_business:bid,p_sale_id:id});
+ if(error)alert(error.message);
+ else{notify('Sale DELETED. Stock and reports recalculated.');await refreshAll();}
 };
 
 window.saveProduct=async()=>{
-const name=$('pn').value.trim(),cat=$('pc').value;
-const cost=Number($('cost').value),sell=Number($('sell').value);
-const qty=Number($('qty').value),alertAt=Number($('alert').value);
-if(!name||cost<0||sell<0||!Number.isInteger(qty)||qty<0)return alert('Check product details.');
-const {data:old,error:findErr}=await sb.from('products').select('*').eq('business_id',bid).ilike('name',name).maybeSingle();
-if(findErr)return alert(findErr.message);
+ const name=$('pn').value.trim(),cat=$('pc').value;
+ const cost=Number($('cost').value),sell=Number($('sell').value);
+ const qty=Number($('qty').value),alertAt=Number($('alert').value);
+ if(!name||cost<0||sell<0||!Number.isInteger(qty)||qty<0)return alert('Check product details.');
 
-if(old){
-const {error}=await sb.from('products').update({
-category:cat,buying_cost:cost,selling_price:sell,
-low_stock_alert:alertAt,active:true
-}).eq('id',old.id);
-if(error)return alert(error.message);
-if(qty){
-const r=await sb.rpc('club_neon_add_stock',{
-p_business:bid,p_product:old.id,p_quantity:qty,
-p_unit_cost:cost,p_note:'Additional stock'
-});
-if(r.error)return alert(r.error.message);
-}
-}else{
-const {data:p,error}=await sb.from('products').insert({
-business_id:bid,name,category:cat,buying_cost:cost,
-selling_price:sell,stock:qty,low_stock_alert:alertAt,active:true
-}).select().single();
-if(error)return alert(error.message);
-if(qty){
-const r=await sb.from('stock_movements').insert({
-business_id:bid,product_id:p.id,movement_type:'stock_in',
-quantity:qty,unit_cost:cost,note:'Opening stock'
-});
-if(r.error)return alert(r.error.message);
-}
-}
-$('pn').value='';$('cost').value='';$('sell').value='';$('qty').value=0;
-notify('Product saved. All product selections and figures refreshed.');
-await refreshAll();
+ const {data:old,error:findErr}=await sb.from('products').select('*').eq('business_id',bid).ilike('name',name).maybeSingle();
+ if(findErr)return alert(findErr.message);
+
+ if(old){
+  const {error}=await sb.from('products').update({
+   category:cat,buying_cost:cost,selling_price:sell,low_stock_alert:alertAt,active:true
+  }).eq('id',old.id);
+  if(error)return alert(error.message);
+  if(qty){
+   const r=await sb.rpc('club_neon_add_stock',{
+    p_business:bid,p_product:old.id,p_quantity:qty,p_unit_cost:cost,p_note:'Additional stock'
+   });
+   if(r.error)return alert(r.error.message);
+  }
+ }else{
+  const {data:p,error}=await sb.from('products').insert({
+   business_id:bid,name,category:cat,buying_cost:cost,
+   selling_price:sell,stock:qty,low_stock_alert:alertAt,active:true
+  }).select().single();
+  if(error)return alert(error.message);
+  if(qty){
+   const r=await sb.from('stock_movements').insert({
+    business_id:bid,product_id:p.id,movement_type:'stock_in',
+    quantity:qty,unit_cost:cost,note:'Opening stock'
+   });
+   if(r.error)return alert(r.error.message);
+  }
+ }
+ $('pn').value='';$('cost').value='';$('sell').value='';$('qty').value=0;
+ notify('Product saved.');await refreshAll();
 };
 
 window.editProduct=async id=>{
-const p=products.find(x=>x.id===id);
-if(!p)return;
-const name=prompt('Product name:',p.name);if(name===null)return;
-const category=prompt('Category:',p.category);if(category===null)return;
-const cost=Number(prompt('Buying cost:',p.buying_cost));
-const price=Number(prompt('Selling price:',p.selling_price));
-const alertAt=Number(prompt('Low stock alert:',p.low_stock_alert));
-if(!name.trim()||cost<0||price<0||alertAt<0)return alert('Invalid product details.');
-const {error}=await sb.from('products').update({
-name:name.trim(),category,buying_cost:cost,
-selling_price:price,low_stock_alert:alertAt
-}).eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify('Product EDITED. Updated figures will appear in all product selections.');await refreshAll();}
+ const p=products.find(x=>x.id===id);if(!p)return;
+ const name=prompt('Product name:',p.name);if(name===null)return;
+ const category=prompt('Category:',p.category);if(category===null)return;
+ const cost=Number(prompt('Buying cost:',p.buying_cost));
+ const price=Number(prompt('Selling price:',p.selling_price));
+ const alertAt=Number(prompt('Low stock alert:',p.low_stock_alert));
+ if(!name.trim()||cost<0||price<0||alertAt<0)return alert('Invalid product details.');
+ const {error}=await sb.from('products').update({
+  name:name.trim(),category,buying_cost:cost,selling_price:price,low_stock_alert:alertAt
+ }).eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify('Product EDITED.');await refreshAll();}
 };
 
 window.adjustStock=async id=>{
-const p=products.find(x=>x.id===id);
-if(!p)return;
-const newStock=Number(prompt('Enter the CORRECT current stock count for '+p.name+'.\nCurrent recorded stock: '+p.stock,p.stock));
-if(!Number.isInteger(newStock)||newStock<0)return alert('Enter a whole number of zero or more.');
-const difference=newStock-Number(p.stock);
-if(difference===0)return alert('Stock figure is unchanged.');
-if(!confirm(`Change ${p.name} stock from ${p.stock} to ${newStock}?`))return;
-const {error}=await sb.from('products').update({stock:newStock}).eq('id',id).eq('business_id',bid);
-if(error)return alert(error.message);
-const movement=await sb.from('stock_movements').insert({
-business_id:bid,product_id:id,movement_type:'stock_adjustment',
-quantity:difference,unit_cost:p.buying_cost,
-note:`Stock corrected from ${p.stock} to ${newStock}`
-});
-if(movement.error)alert('Stock updated, but movement history could not be saved: '+movement.error.message);
-notify('Stock figure corrected. Product dropdowns and reports refreshed.');
-await refreshAll();
+ const p=products.find(x=>x.id===id);if(!p)return;
+ const n=Number(prompt('Enter CORRECT current stock count for '+p.name,p.stock));
+ if(!Number.isInteger(n)||n<0)return alert('Enter a whole number of zero or more.');
+ const diff=n-Number(p.stock);if(diff===0)return alert('Stock figure is unchanged.');
+ if(!confirm(`Change ${p.name} stock from ${p.stock} to ${n}?`))return;
+ const {error}=await sb.from('products').update({stock:n}).eq('id',id).eq('business_id',bid);
+ if(error)return alert(error.message);
+ const movement=await sb.from('stock_movements').insert({
+  business_id:bid,product_id:id,movement_type:'stock_adjustment',
+  quantity:diff,unit_cost:p.buying_cost,note:`Stock corrected from ${p.stock} to ${n}`
+ });
+ if(movement.error)alert('Stock updated, but movement history could not be saved: '+movement.error.message);
+ notify('Stock corrected.');await refreshAll();
 };
 
 window.toggleProduct=async id=>{
-const p=products.find(x=>x.id===id);
-if(!p)return;
-const restoring=p.active===false;
-if(!confirm((restoring?'Restore ':'Archive ')+p.name+'?'))return;
-const {error}=await sb.from('products').update({active:restoring}).eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify(restoring?'Product RESTORED.':'Product ARCHIVED. It is removed from sale selections.');await refreshAll();}
+ const p=products.find(x=>x.id===id);if(!p)return;
+ const restoring=p.active===false;
+ if(!confirm((restoring?'Restore ':'Archive ')+p.name+'?'))return;
+ const {error}=await sb.from('products').update({active:restoring}).eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify(restoring?'Product RESTORED.':'Product ARCHIVED.');await refreshAll();}
 };
 
 window.restock=async id=>{
-const p=products.find(x=>x.id===id);
-if(!p)return;
-const q=Number(prompt('Quantity to add for '+p.name));
-if(!Number.isInteger(q)||q<1)return;
-const c=Number(prompt('New unit buying cost',p.buying_cost));
-if(!Number.isFinite(c)||c<0)return;
-const {error}=await sb.rpc('club_neon_add_stock',{
-p_business:bid,p_product:id,p_quantity:q,p_unit_cost:c,p_note:'Stock-in'
-});
-if(error)alert(error.message);
-else{notify('Stock added. Updated figures refreshed.');await refreshAll();}
+ const p=products.find(x=>x.id===id);if(!p)return;
+ const q=Number(prompt('Quantity to add for '+p.name));
+ if(!Number.isInteger(q)||q<1)return;
+ const c=Number(prompt('New unit buying cost',p.buying_cost));
+ if(!Number.isFinite(c)||c<0)return;
+ const {error}=await sb.rpc('club_neon_add_stock',{
+  p_business:bid,p_product:id,p_quantity:q,p_unit_cost:c,p_note:'Stock-in'
+ });
+ if(error)alert(error.message);
+ else{notify('Stock added.');await refreshAll();}
 };
 
 window.addExpense=async()=>{
-const description=$('edesc').value.trim(),amount=Number($('eamount').value);
-if(!description||amount<=0)return alert('Enter description and amount.');
-const {error}=await sb.from('expenses').insert({
-business_id:bid,description,category:$('ecat').value,
-amount,payment_method:$('epay').value
-});
-if(error)alert(error.message);
-else{$('edesc').value='';$('eamount').value='';notify('Expense saved.');await refreshAll();}
+ const description=$('edesc').value.trim(),amount=Number($('eamount').value);
+ if(!description||amount<=0)return alert('Enter description and amount.');
+ const {error}=await sb.from('expenses').insert({
+  business_id:bid,description,category:$('ecat').value,
+  amount,payment_method:$('epay').value
+ });
+ if(error)alert(error.message);
+ else{$('edesc').value='';$('eamount').value='';notify('Expense saved.');await refreshAll();}
 };
 
 window.editExpense=async id=>{
-const x=expenses.find(e=>e.id===id);if(!x)return;
-const description=prompt('Correct description:',x.description);if(description===null)return;
-const category=prompt('Correct category:',x.category);if(category===null)return;
-const amount=Number(prompt('Correct amount:',x.amount));
-if(!description.trim()||!Number.isFinite(amount)||amount<=0)return alert('Invalid expense details.');
-const payment=prompt('Payment method:',x.payment_method);if(payment===null)return;
-const {error}=await sb.from('expenses').update({
-description:description.trim(),category,amount,payment_method:payment
-}).eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify('Expense EDITED. Dashboard and reports refreshed.');await refreshAll();}
+ const x=expenses.find(e=>e.id===id);if(!x)return;
+ const description=prompt('Correct description:',x.description);if(description===null)return;
+ const category=prompt('Correct category:',x.category);if(category===null)return;
+ const amount=Number(prompt('Correct amount:',x.amount));
+ if(!description.trim()||!Number.isFinite(amount)||amount<=0)return alert('Invalid expense details.');
+ const payment=prompt('Payment method:',x.payment_method);if(payment===null)return;
+ const {error}=await sb.from('expenses').update({
+  description:description.trim(),category,amount,payment_method:payment
+ }).eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify('Expense EDITED.');await refreshAll();}
 };
 
 window.deleteExpense=async id=>{
-const x=expenses.find(e=>e.id===id);if(!x)return;
-if(!confirm(`Delete expense "${x.description}" for ${money(x.amount)}?`))return;
-const {error}=await sb.from('expenses').delete().eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify('Expense DELETED. Dashboard and reports recalculated.');await refreshAll();}
+ const x=expenses.find(e=>e.id===id);if(!x)return;
+ if(!confirm(`Delete expense "${x.description}" for ${money(x.amount)}?`))return;
+ const {error}=await sb.from('expenses').delete().eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify('Expense DELETED.');await refreshAll();}
 };
 
 window.addStaff=async()=>{
-const name=$('staffName').value.trim();
-if(!name)return alert('Enter staff name.');
-const {error}=await sb.from('staff').insert({
-business_id:bid,name,role:$('staffRole').value,active:true
-});
-if(error)alert(error.message);
-else{$('staffName').value='';notify('Staff member added.');await refreshAll();}
+ const name=$('staffName').value.trim();
+ if(!name)return alert('Enter staff name.');
+ const {error}=await sb.from('staff').insert({
+  business_id:bid,name,role:$('staffRole').value,active:true
+ });
+ if(error)alert(error.message);
+ else{$('staffName').value='';notify('Staff member added.');await refreshAll();await loadStaffDirectory();}
 };
 
 window.editStaff=async id=>{
-const x=staff.find(s=>s.id===id);if(!x)return;
-const name=prompt('Staff name:',x.name);if(name===null)return;
-const role=prompt('Staff role:',x.role);if(role===null)return;
-if(!name.trim())return alert('Name is required.');
-const {error}=await sb.from('staff').update({name:name.trim(),role}).eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify('Staff details EDITED. Staff selections refreshed.');await refreshAll();}
+ const x=staff.find(s=>s.id===id);if(!x)return;
+ const name=prompt('Staff name:',x.name);if(name===null)return;
+ const job=prompt('Staff role:',x.role);if(job===null)return;
+ if(!name.trim())return alert('Name is required.');
+ const {error}=await sb.from('staff').update({name:name.trim(),role:job}).eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify('Staff details EDITED.');await refreshAll();await loadStaffDirectory();}
 };
 
 window.toggleStaff=async id=>{
-const x=staff.find(s=>s.id===id);if(!x)return;
-const active=x.active===false;
-if(!confirm((active?'Activate ':'Deactivate ')+x.name+'?'))return;
-const {error}=await sb.from('staff').update({active}).eq('id',id).eq('business_id',bid);
-if(error)alert(error.message);
-else{notify(active?'Staff member activated.':'Staff member deactivated and removed from sale selections.');await refreshAll();}
+ const x=staff.find(s=>s.id===id);if(!x)return;
+ const active=x.active===false;
+ if(!confirm((active?'Activate ':'Deactivate ')+x.name+'?'))return;
+ const {error}=await sb.from('staff').update({active}).eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);
+ else{notify(active?'Staff member activated.':'Staff member deactivated.');await refreshAll();await loadStaffDirectory();}
+};
+
+window.resetStaffPin=async id=>{
+ const person=staff.find(s=>s.id===id);if(!person)return;
+ const pin=prompt('Enter a new 4–8 digit PIN for '+person.name+':');
+ if(pin===null)return;
+ if(!/^\d{4,8}$/.test(pin))return alert('PIN must contain 4–8 digits.');
+ if(!confirm('Reset PIN for '+person.name+'?'))return;
+ const {error}=await sb.rpc('club_neon_admin_reset_staff_pin',{
+  p_staff_id:id,p_new_pin:pin
+ });
+ if(error)alert(error.message);
+ else alert('Staff PIN reset successfully.');
+};
+
+window.changeAdminPin=async()=>{
+ const pin=$('adminNewPin').value.trim();
+ if(!/^\d{4,8}$/.test(pin))return alert('PIN must contain 4–8 digits.');
+ if(!confirm('Change the administrator PIN?'))return;
+ const {error}=await sb.rpc('club_neon_admin_change_pin',{p_new_pin:pin});
+ if(error)alert(error.message);
+ else{$('adminNewPin').value='';alert('Administrator PIN changed successfully.');}
 };
 
 window.renderReports=()=>{
-const f=$('from').value||'0000-01-01',t=$('to').value||'9999-12-31';
-const ss=sales.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
-const ee=expenses.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
-const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
-const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
-const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
-[['rs',s],['rc',c],['rg',s-c],['re',e],['rn',s-c-e]].forEach(([id,v])=>$(id).textContent=money(v));
-const g={};
-ss.forEach(x=>{
-g[x.product_name]??={q:0,s:0,c:0};
-g[x.product_name].q+=Number(x.quantity);
-g[x.product_name].s+=Number(x.total||0);
-g[x.product_name].c+=Number(x.cost_total||0);
-});
-$('productReport').innerHTML=tbl(['Product','Qty','Sales','Gross profit'],
-Object.entries(g).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.q}</td><td>${money(v.s)}</td><td>${money(v.s-v.c)}</td></tr>`));
+ const f=$('from').value||'0000-01-01',t=$('to').value||'9999-12-31';
+ const ss=sales.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
+ const ee=expenses.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t);
+ const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
+ const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
+ const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
+ [['rs',s],['rc',c],['rg',s-c],['re',e],['rn',s-c-e]].forEach(([id,v])=>$(id).textContent=money(v));
+ const g={};
+ ss.forEach(x=>{
+  g[x.product_name]??={q:0,s:0,c:0};
+  g[x.product_name].q+=Number(x.quantity);
+  g[x.product_name].s+=Number(x.total||0);
+  g[x.product_name].c+=Number(x.cost_total||0);
+ });
+ $('productReport').innerHTML=tbl(['Product','Qty','Sales','Gross profit'],
+ Object.entries(g).map(([n,v])=>`<tr><td>${esc(n)}</td><td>${v.q}</td><td>${money(v.s)}</td><td>${money(v.s-v.c)}</td></tr>`));
 };
 
 window.exportCSV=()=>{
-const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff'],
-...sales.map(x=>[x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name])];
-download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'club-neon-sales.csv','text/csv');
+ const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff'],
+ ...sales.map(x=>[x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name])];
+ download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',').join('\r\n'),'club-neon-sales.csv','text/csv');
 };
 
 window.backup=()=>{
-download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves},null,2),'club-neon-backup.json','application/json');
+ download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves},null,2),'club-neon-backup.json','application/json');
 };
 
 function download(data,name,type){
-const a=document.createElement('a');
-const u=URL.createObjectURL(new Blob([data],{type}));
-a.href=u;a.download=name;a.click();
-setTimeout(()=>URL.revokeObjectURL(u),1000);
+ const a=document.createElement('a');
+ const u=URL.createObjectURL(new Blob([data],{type}));
+ a.href=u;a.download=name;a.click();
+ setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 
 function go(p){
-document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
-$(p).classList.remove('hidden');
-document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
-if(p==='reports')renderReports();
+ if(role==='staff'&&!['sales','stock'].includes(p))return;
+ document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
+ $(p).classList.remove('hidden');
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===p));
+ if(p==='reports')renderReports();
 }
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>go(b.dataset.page));
 
 function setDates(){
-$('from').value=date(new Date(new Date().getFullYear(),new Date().getMonth(),1));
-$('to').value=date(new Date());
+ $('from').value=date(new Date(new Date().getFullYear(),new Date().getMonth(),1));
+ $('to').value=date(new Date());
 }
+
 setDates();
 
 try{
-await startApp();
+ await initialise();
 }catch(e){
-$('status').textContent='Connection error';
-$('message').className='error';
-$('message').textContent=e.message;
+ $('status').textContent='Connection error';
+ $('message').className='error';
+ $('message').textContent=e.message+
+ '\n\nCheck that Anonymous Sign-Ins are enabled in Supabase Authentication settings.';
+ loginError(e.message);
 }
 </script>
 </body>
