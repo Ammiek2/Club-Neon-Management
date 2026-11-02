@@ -355,13 +355,9 @@ window.loginStaff=async()=>{
  loginError('Checking PIN...');
  const {error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
  if(error)return loginError(error.message);
- try{
-  const r=await checkRole();
-  if(r!=='staff')throw new Error('Staff access was not confirmed.');
-  const person=staffDirectory.find(x=>x.id===id);
-  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
-  await enterApp();
- }catch(e){loginError(e.message);}
+ const person=staffDirectory.find(x=>x.id===id);
+ role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+ try{await enterApp();}catch(e){loginError(e.message);}
 };
 
 window.createStaffPin=async()=>{
@@ -376,13 +372,9 @@ window.createStaffPin=async()=>{
   p_staff_id:id,p_setup_code:code,p_pin:pin
  });
  if(error)return loginError(error.message);
- try{
-  const r=await checkRole();
-  if(r!=='staff')throw new Error('Staff access was not confirmed.');
-  const person=staffDirectory.find(x=>x.id===id);
-  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
-  await enterApp();
- }catch(e){loginError(e.message);}
+ const person=staffDirectory.find(x=>x.id===id);
+ role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+ try{await enterApp();}catch(e){loginError(e.message);}
 };
 
 async function enterApp(){
