@@ -450,7 +450,7 @@ window.refreshAll=async(silent=false)=>{
  if(!silent)$('status').textContent='Refreshing...';
 
  const names=role==='admin'
- ?['products','sales','expenses','staff','stock_movements']
+ ?['products','sales','expenses','staff','stock_movements','daily_payment_balances']
  :['products','sales','stock_movements'];
 
  const res=await Promise.all(names.map(t=>
