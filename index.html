@@ -779,7 +779,7 @@ window.renderReports=()=>{
 window.exportCSV=()=>{
  const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff'],
  ...sales.map(x=>[x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name])];
- download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',').join('\r\n'),'club-neon-sales.csv','text/csv');
+ download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'club-neon-sales.csv','text/csv');
 };
 
 window.backup=()=>{
