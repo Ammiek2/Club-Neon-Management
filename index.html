@@ -376,10 +376,11 @@ window.createStaffPin=async()=>{
  if(!/^\d{4,8}$/.test(pin))return loginError('Your PIN must contain 4–8 digits.');
  if(!code)return loginError('Enter the staff setup code.');
  loginError('Creating your PIN...');
- const {error}=await sb.rpc('club_neon_enrol_staff',{
+ const {data,error}=await sb.rpc('club_neon_enrol_staff',{
   p_staff_id:id,p_setup_code:code,p_pin:pin
  });
  if(error)return loginError(error.message);
+ if(data!==true)return loginError('Staff PIN was not created. Check the setup code and staff enrollment permissions.');
  const person=staffDirectory.find(x=>x.id===id);
  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
  try{await enterApp();}catch(e){loginError(e.message);}
