@@ -700,11 +700,11 @@ function render(){
   $('sstaff').innerHTML='<option value="">Owner</option>'+activeStaff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
  }
 
- $('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Alert','Status','Actions'],
+ $('stockTable').innerHTML=tbl(['Product','Category','Cost','Sell','Stock','Status','Actions'],
  products.map(p=>`<tr>
  <td>${esc(p.name)}</td><td>${esc(p.category)}</td>
  <td>${money(p.buying_cost)}</td><td>${money(p.selling_price)}</td>
- <td>${p.stock}</td><td>${p.low_stock_alert}</td>
+ <td>${p.stock}</td>
  <td>${p.active===false?'Archived':'Active'}</td>
  <td><button class="secondary small" onclick="editProduct('${p.id}')">Edit</button>
  <button class="secondary small" onclick="adjustStock('${p.id}')">Correct stock</button>
