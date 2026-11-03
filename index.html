@@ -731,7 +731,7 @@ window.changeCollectionDate=async function(){
  await loadDailyStockTakes(true);
 };
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
-window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');return{sold:ss.reduce((a,x)=>a+Number(x.quantity||0),0),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
+window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
@@ -1049,9 +1049,19 @@ window.renderReports=async()=>{
  $('productReport').innerHTML=tbl(['Product','Qty','Sales','Gross profit'],Object.entries(g).map(([n,v])=>'<tr><td>'+esc(n)+'</td><td>'+v.q.toFixed(3)+'</td><td>'+money(v.s)+'</td><td>'+money(v.s-v.c)+'</td></tr>'));
 };
 
-window.exportCSV=()=>{
- const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff'],
- ...sales.map(x=>[x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name])];
+window.exportCSV=async()=>{
+ const rows=[['Date','Product','Qty','Total','Cost','Payment','Staff']];
+ sales.forEach(x=>rows.push([x.created_at,x.product_name,x.quantity,x.total,x.cost_total,x.payment_method,x.staff_name]));
+ const {data:stockRows,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid);
+ if(error)return alert('Could not include stock-count sales in CSV: '+error.message);
+ (stockRows||[]).forEach(row=>{
+  const sold=sales.filter(x=>x.product_id===row.product_id&&date(x.created_at)===row.collection_date);
+  const actualQty=sold.reduce((a,x)=>a+Number(x.quantity||0),0);
+  const missing=Math.max(0,Number(row.sold_qty||0)-actualQty);
+  if(!missing)return;
+  const p=products.find(x=>x.id===row.product_id);
+  rows.push([row.collection_date,p?.name||'Product',missing,missing*Number(p?.selling_price||0),missing*Number(p?.buying_cost||0),'Unallocated (stock count)','']);
+ });
  download(rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n'),'club-neon-sales.csv','text/csv');
 };
 
