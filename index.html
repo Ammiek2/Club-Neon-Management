@@ -80,7 +80,7 @@ main{padding:10px}
   <div id="adminLogin" class="hidden">
    <h2>Admin login</h2>
    <label class="hint">Admin PIN</label>
-   <input id="adminPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter admin PIN">
+   <input id="adminPin" type="password" inputmode="numeric" maxlength="12" placeholder="Enter admin PIN">
    <button onclick="loginAdmin()">Unlock admin</button>
    <button class="secondary" onclick="backLogin()">Back</button>
   </div>
@@ -281,7 +281,7 @@ main{padding:10px}
   <div class="panel"><h2>Staff list and PIN control</h2><p class="hint">Reset a staff member's PIN when they forget it. They can then use the new PIN to log in.</p><div id="staffTable" class="tablewrap"></div></div>
   <div class="panel">
    <h2>Change admin PIN</h2>
-   <div class="field"><label>New admin PIN (4–8 digits)</label><input id="adminNewPin" type="password" inputmode="numeric" maxlength="8"></div>
+   <div class="field"><label>New admin PIN (4–8 digits)</label><input id="adminNewPin" type="password" inputmode="numeric" maxlength="12"></div>
    <div class="actions"><button onclick="changeAdminPin()">Update admin PIN</button></div>
   </div>
   <div class="panel">
@@ -397,16 +397,21 @@ async function checkRole(){
 
 window.loginAdmin=async()=>{
  const pin=$('adminPin').value.trim();
- if(!/^\d{4,8}$/.test(pin))return loginError('Enter a valid 4–8 digit PIN.');
+ if(!/^\d{4,12}$/.test(pin))return loginError('Enter a valid 4–12 digit PIN.');
  loginError('Checking PIN...');
- const {error}=await sb.rpc('club_neon_unlock_admin',{p_pin:pin});
- if(error)return loginError(error.message);
  try{
+  const {data,error}=await sb.rpc('club_neon_unlock_admin',{p_pin:pin});
+  if(error)throw error;
+  if(data!==true)throw new Error('Incorrect admin PIN. Please check the PIN and try again.');
   const r=await checkRole();
-  if(r!=='admin')throw new Error('Admin access was not confirmed.');
+  if(r!=='admin')throw new Error('Admin access was not confirmed. Please try again.');
   role='admin';currentStaffId=null;currentStaffName='Administrator';
+  loginError('PIN accepted. Opening Club Neon...');
   await enterApp();
- }catch(e){loginError(e.message);}
+ }catch(e){
+  console.error('Admin login failed:',e);
+  loginError(e?.message||'Login failed. Please check your connection and try again.');
+ }
 };
 
 window.loginStaff=async()=>{
