@@ -300,8 +300,18 @@ main{padding:10px}
 </main>
 </div>
 
+<script>
+window.addEventListener('error',function(e){
+ const el=document.getElementById('loginMessage');
+ if(el)el.textContent='App loading error: '+(e.message||'A script failed to load.');
+});
+window.addEventListener('unhandledrejection',function(e){
+ const el=document.getElementById('loginMessage');
+ if(el)el.textContent='App startup error: '+(e.reason?.message||String(e.reason||'Unknown error'));
+});
+</script>
 <script type="module">
-import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import {createClient} from 'https://esm.sh/@supabase/supabase-js@2';
 
 const sb=createClient(
  'https://scrrumwnclojwgedjzah.supabase.co',
