@@ -479,6 +479,8 @@ window.refreshAll=async(silent=false)=>{
  if(refreshBusy){refreshPending=true;return;}
  refreshBusy=true;
  if(!silent)$('status').textContent='Refreshing...';
+ const stockSync=await sb.rpc('club_neon_reconcile_stock_from_daily_takes',{p_business:bid});
+ if(stockSync.error){$('message').textContent='Stock reconciliation notice: '+stockSync.error.message;}
 
  const names=role==='admin'
  ?['products','sales','expenses','staff','stock_movements','daily_payment_balances']
