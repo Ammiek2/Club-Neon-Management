@@ -810,8 +810,8 @@ window.loadDailyStockTakes=async function(silent=false){
   const current=Number(p.stock||0);
   const physical=x?Number(x.closing_qty||0):null;
   const action=x
-   ?'<button class="secondary small" onclick="editDailyStockTake(\\''+x.id+'\\')">Edit</button>'
-   :'<button class="secondary small" onclick="selectDailyStockTakeProduct(\\''+p.id+'\\')">Record</button>';
+   ?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button>`
+   :`<button class="secondary small" onclick="selectDailyStockTakeProduct('${p.id}')">Record</button>`;
   return '<tr><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+esc(x?.note||(x?'':'Not yet recorded'))+'</td><td>'+action+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
