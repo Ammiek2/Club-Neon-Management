@@ -810,8 +810,8 @@ window.loadDailyStockTakes=async function(silent=false){
   const current=Number(p.stock||0);
   const physical=x?Number(x.closing_qty||0):null;
   const action=x
-   ?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button>`
-   :`<button class="secondary small" onclick="selectDailyStockTakeProduct('${p.id}')">Record</button>`;
+   ?'<button class="secondary small" onclick="editDailyStockTake(\\''+x.id+'\\')">Edit</button>'
+   :'<button class="secondary small" onclick="selectDailyStockTakeProduct(\\''+p.id+'\\')">Record</button>';
   return '<tr><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+esc(x?.note||(x?'':'Not yet recorded'))+'</td><td>'+action+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
@@ -819,7 +819,7 @@ window.loadDailyStockTakes=async function(silent=false){
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
- $('stockTakeStatus').textContent=products.length+' products listed; '+dailyStockTakes.length+' saved stock-take records for '+day+'. Calculated sales: '+money(totals.totalSales)+'; unallocated from saved stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
+ $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
 };
 
