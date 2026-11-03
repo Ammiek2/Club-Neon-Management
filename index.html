@@ -186,9 +186,9 @@ main{padding:10px}
   <h1>Record sale</h1>
   <div class="panel">
    <div class="grid">
-    <div class="field"><label>Product</label><select id="sp"></select></div>
+    <div class="field"><label>Product</label><select id="sp" onchange="updateSalePrice()"></select></div>
     <div class="field"><label>Quantity</label><input id="sq" type="number" min="0.001" step="0.001" value="1"></div>
-    <div class="field"><label>Unit selling price</label><input id="sprice" type="number" min="0" step=".01"></div>
+    <div class="field"><label>Unit selling price (from Stock &amp; products)</label><input id="sprice" type="number" min="0" step=".01" readonly></div>
     <div class="field"><label>Payment</label><select id="pay"><option>Cash</option><option>M-Pesa</option></select></div>
     <div class="field"><label>Served by</label><select id="sstaff"></select></div>
     <div class="field"><label>Note</label><input id="snote"></div>
@@ -695,6 +695,7 @@ function render(){
  }
 
  $('sp').innerHTML=activeProducts.map(p=>`<option value="${p.id}">${esc(p.name)} — Stock: ${p.stock}</option>`).join('');
+  updateSalePrice();
 
  if(role==='staff'){
   $('sstaff').innerHTML=`<option value="${currentStaffId}">${esc(currentStaffName)}</option>`;
@@ -830,10 +831,15 @@ window.selectDailyStockTakeProduct=function(pid){
  populateDailyStockTakeInputs();
  $('stockTakeStatus').textContent='Ready to record this product. Enter the physical closing stock, then save.';
 };
+window.updateSalePrice=()=>{
+ const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
+ $('sprice').value=p?Number(p.selling_price||0).toFixed(2):'';
+};
+
 window.recordSale=async()=>{
  const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
  const q=Number($('sq').value);
- const price=Number($('sprice').value||p?.selling_price);
+ const price=Number(p?.selling_price);
  const sid=role==='staff'?currentStaffId:$('sstaff').value;
  const st=staff.find(x=>x.id===sid);
 
@@ -849,7 +855,7 @@ window.recordSale=async()=>{
  });
  if(error)alert(error.message);
  else{
-  $('sq').value=1;$('sprice').value='';$('snote').value='';
+  $('sq').value=1;$('snote').value='';updateSalePrice();
   $('smsg').textContent='Sale saved successfully.';
   notify('New sale saved. Stock and product selections refreshed.');
   await refreshAll();
