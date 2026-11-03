@@ -314,6 +314,7 @@ let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
 let refreshBusy=false;
+let refreshPending=false;
 let realtimeChannel=null;
 let realtimeTimer=null;
 
@@ -473,7 +474,8 @@ window.logout=async()=>{
 };
 
 window.refreshAll=async(silent=false)=>{
- if(!bid||!role||refreshBusy)return;
+ if(!bid||!role)return;
+ if(refreshBusy){refreshPending=true;return;}
  refreshBusy=true;
  if(!silent)$('status').textContent='Refreshing...';
 
@@ -490,6 +492,7 @@ window.refreshAll=async(silent=false)=>{
    $('status').textContent='Database error';
    $('message').textContent=names[i]+': '+res[i].error.message;
    refreshBusy=false;
+   if(refreshPending){refreshPending=false;queueMicrotask(()=>window.refreshAll(true));}
    return;
   }
  }
@@ -506,8 +509,10 @@ window.refreshAll=async(silent=false)=>{
 
  render();
  await loadDailyStockTakes(true);
+ if(role==='admin'&&$('reports')&&!$('reports').classList.contains('hidden'))renderReports();
  $('status').textContent=realtimeChannel?'Live sync active':(role==='admin'?'Admin unlocked':'Staff unlocked');
  refreshBusy=false;
+ if(refreshPending){refreshPending=false;queueMicrotask(()=>window.refreshAll(true));}
 };
 
 // Live cloud subscriptions replace the old five-second polling loop.
@@ -709,7 +714,7 @@ window.changeCollectionDate=async function(){
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');return{sold:ss.reduce((a,x)=>a+Number(x.quantity||0),0),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
-window.loadDailyStockTakes=async function(silent=false){if(!bid||!role||!$('stockTakeDate'))return;const day=$('stockTakeDate').value||date(new Date());const{data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}dailyStockTakes=data||[];const ds=sales.filter(x=>date(x.created_at)===day),dm=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');$('dailyStockSalesTotal').textContent=money(ds.reduce((a,x)=>a+Number(x.total||0),0));$('dailyStockSoldTotal').textContent=ds.reduce((a,x)=>a+Number(x.quantity||0),0).toFixed(3);$('dailyStockAddedTotal').textContent=dm.reduce((a,x)=>a+Number(x.quantity||0),0).toFixed(3);const rows=dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),ex=Number(x.opening_qty||0)+Number(x.stock_added||0)-Number(x.sold_qty||0)-Number(x.wastage_qty||0);return '<tr><td>'+esc(p?.name||x.product_id)+'</td><td>'+Number(x.opening_qty||0).toFixed(3)+'</td><td>'+Number(x.stock_added||0).toFixed(3)+'</td><td>'+Number(x.sold_qty||0).toFixed(3)+'</td><td>'+Number(x.wastage_qty||0).toFixed(3)+'</td><td>'+ex.toFixed(3)+'</td><td>'+Number(x.closing_qty||0).toFixed(3)+'</td><td>'+(Number(x.closing_qty||0)-ex).toFixed(3)+'</td><td>'+esc(x.note||'')+'</td><td><button class="secondary small" onclick="editDailyStockTake(\''+x.id+'\')">Edit</button></td></tr>';});$('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Note','Actions'],rows);$('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Sales and stock-in are synced automatically.';if($('stockTakeProduct').value)populateDailyStockTakeInputs();};
+window.loadDailyStockTakes=async function(silent=false){if(!bid||!role||!$('stockTakeDate'))return;const day=$('stockTakeDate').value||date(new Date());const{data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}dailyStockTakes=data||[];const ds=sales.filter(x=>date(x.created_at)===day),dm=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');const transactionSold=ds.reduce((a,x)=>a+Number(x.quantity||0),0),stockTakeSold=dailyStockTakes.reduce((a,x)=>a+Number(x.sold_qty||0),0);$('dailyStockSalesTotal').textContent=money(ds.reduce((a,x)=>a+Number(x.total||0),0));$('dailyStockSoldTotal').textContent=stockTakeSold.toFixed(3);$('dailyStockAddedTotal').textContent=dm.reduce((a,x)=>a+Number(x.quantity||0),0).toFixed(3);const rows=dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),ex=Number(x.opening_qty||0)+Number(x.stock_added||0)-Number(x.sold_qty||0)-Number(x.wastage_qty||0);return '<tr><td>'+esc(p?.name||x.product_id)+'</td><td>'+Number(x.opening_qty||0).toFixed(3)+'</td><td>'+Number(x.stock_added||0).toFixed(3)+'</td><td>'+Number(x.sold_qty||0).toFixed(3)+'</td><td>'+Number(x.wastage_qty||0).toFixed(3)+'</td><td>'+ex.toFixed(3)+'</td><td>'+Number(x.closing_qty||0).toFixed(3)+'</td><td>'+(Number(x.closing_qty||0)-ex).toFixed(3)+'</td><td>'+esc(x.note||'')+'</td><td><button class="secondary small" onclick="editDailyStockTake(\''+x.id+'\')">Edit</button></td></tr>';});$('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Note','Actions'],rows);$('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Stock-take sold quantity: '+stockTakeSold.toFixed(3)+'. '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'WARNING: saved stock-take quantities do not match recorded sale transactions ('+transactionSold.toFixed(3)+'). Sales value and payment totals use recorded transactions only.':'Sales transactions and stock-take quantities match.');if($('stockTakeProduct').value)populateDailyStockTakeInputs();};
 window.saveDailyStockTake=async function(){if(!role)return;const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value,opening=Number($('stOpening').value),wastage=Number($('stWastage').value),closing=Number($('stClosing').value);if(!day||!pid||![opening,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid quantities to 3 decimal places.');const{data,error}=await sb.rpc('club_neon_save_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});if(error)return alert('Could not save daily stock take: '+error.message);const out=Array.isArray(data)?data[0]:data;notify(out?.live_stock_adjusted?'Daily stock saved. Live stock reconciled to physical closing.':'Daily stock saved. Live stock unchanged because later transactions or a later stock take exist.');await refreshAll();};
 window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeProduct').value=x.product_id;$('stOpening').value=x.opening_qty;$('stAdded').value=x.stock_added;$('stSold').value=x.sold_qty;$('stWastage').value=x.wastage_qty;$('stClosing').value=x.closing_qty;$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry. Added and sold quantities recalculate from transactions when saved.';};
 window.recordSale=async()=>{
