@@ -420,12 +420,17 @@ window.loginStaff=async()=>{
  if(!id)return loginError('Select your staff name.');
  if(!/^\d{4,8}$/.test(pin))return loginError('Enter your 4–8 digit PIN.');
  loginError('Checking PIN...');
- const {data,error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
- if(error)return loginError(error.message);
- if(data!==true)return loginError('Staff PIN was not accepted. Check that this staff member has an enrolled PIN.');
- const person=staffDirectory.find(x=>x.id===id);
- role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
- try{await enterApp();}catch(e){loginError(e.message);}
+ try{
+  const {data,error}=await sb.rpc('club_neon_unlock_staff',{p_staff_id:id,p_pin:pin});
+  if(error)throw error;
+  if(data!==true)throw new Error('Staff PIN was not accepted. Check that this staff member has an enrolled PIN.');
+  const person=staffDirectory.find(x=>x.id===id);
+  role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+  await enterApp();
+ }catch(e){
+  console.error('Staff login failed:',e);
+  loginError(e?.message||'Staff login failed. Please try again.');
+ }
 };
 
 window.createStaffPin=async()=>{
@@ -447,15 +452,11 @@ window.createStaffPin=async()=>{
 };
 
 async function enterApp(){
- // Keep the login screen visible until cloud data has loaded successfully.
- $('status').textContent='Loading business data...';
- await refreshAll();
- if($('status').textContent==='Database error'){
-  throw new Error($('message').textContent||'Business data could not be loaded. Please try again.');
- }
-
+ // Open the workspace immediately after PIN verification, as before.
+ $('loginScreen').classList.add('hidden');
  $('mainNav').classList.remove('hidden');
  $('appMain').classList.remove('hidden');
+ $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
 
  document.querySelectorAll('[data-admin="1"]').forEach(b=>{
   b.classList.toggle('hidden',role!=='admin');
@@ -465,11 +466,16 @@ async function enterApp(){
   b.onclick=()=>go(b.dataset.page);
  });
 
- startLiveSync();
  go(role==='admin'?'dashboard':'sales');
- $('loginScreen').classList.add('hidden');
- $('status').textContent=role==='admin'?'Admin unlocked':'Staff unlocked';
- $('message').textContent='Welcome '+currentStaffName+'. Your access is active.';
+ startLiveSync();
+ $('message').textContent='Welcome '+currentStaffName+'. Your access is active. Loading records...';
+ try{
+  await refreshAll();
+ }catch(e){
+  console.error('Initial data loading failed:',e);
+  $('message').textContent='You are logged in, but some records could not load: '+(e?.message||'Unknown error');
+  $('status').textContent='Connected with loading error';
+ }
 }
 
 window.logout=async()=>{
