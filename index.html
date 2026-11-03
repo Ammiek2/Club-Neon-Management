@@ -145,8 +145,8 @@ main{padding:10px}
   <div class="panel"><div class="field"><label>Business collection date (shared across daily panels)</label><input id="collectionDate" type="date" onchange="changeCollectionDate()"></div><p class="hint">Choose a date to review that day’s sales, expenses, stock movements and cash count. Use edit controls to correct saved entries.</p></div>
   <div class="cards">
    <div class="card"><div class="muted">Today's total sales</div><div class="metric" id="ds">KSh 0</div></div>
-   <div class="card"><div class="muted">Today's cash in hand</div><div class="metric" id="cashToday">KSh 0</div></div>
-   <div class="card"><div class="muted">Today's M-Pesa Till</div><div class="metric" id="mpesaToday">KSh 0</div></div>
+   <div class="card"><div class="muted">Cash sales (selected date)</div><div class="metric" id="cashToday">KSh 0</div></div>
+   <div class="card"><div class="muted">M-Pesa sales (selected date)</div><div class="metric" id="mpesaToday">KSh 0</div></div>
    <div class="card"><div class="muted">Expenses</div><div class="metric" id="de">KSh 0</div></div>
    <div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
    <div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
@@ -600,13 +600,14 @@ function render(){
  const ss=sales.filter(x=>date(x.created_at)===day);
  const ee=expenses.filter(x=>date(x.created_at)===day);
  const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
- const cashToday=ss.filter(x=>String(x.payment_method||'').trim().toLowerCase()==='cash').reduce((a,x)=>a+Number(x.total||0),0);
- const mpesaToday=ss.filter(x=>['m-pesa','mpesa','m-pesa till'].includes(String(x.payment_method||'').trim().toLowerCase())).reduce((a,x)=>a+Number(x.total||0),0);
+ const paymentKey=x=>String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'');
+ const cashToday=ss.filter(x=>paymentKey(x)==='cash'||paymentKey(x).startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
+ const mpesaToday=ss.filter(x=>paymentKey(x).startsWith('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
  const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
  const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
 
  if(role==='admin'){
-  $('today').textContent='Collection for '+new Date(day+'T12:00:00').toLocaleDateString('en-KE',{dateStyle:'full'});
+  $('today').textContent='Selected collection date: '+new Date(day+'T12:00:00').toLocaleDateString('en-KE',{dateStyle:'full'});
   if(!$('collectionDate').value)$('collectionDate').value=today;
   if(!$('balanceDate').value)$('balanceDate').value=day;
   if(!$('stockTakeDate').value)$('stockTakeDate').value=day;
