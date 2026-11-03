@@ -186,7 +186,7 @@ main{padding:10px}
   <div class="panel">
    <div class="grid">
     <div class="field"><label>Product</label><select id="sp"></select></div>
-    <div class="field"><label>Quantity</label><input id="sq" type="number" min="1" value="1"></div>
+    <div class="field"><label>Quantity</label><input id="sq" type="number" min="0.001" step="0.001" value="1"></div>
     <div class="field"><label>Unit selling price</label><input id="sprice" type="number" min="0" step=".01"></div>
     <div class="field"><label>Payment</label><select id="pay"><option>Cash</option><option>M-Pesa</option></select></div>
     <div class="field"><label>Served by</label><select id="sstaff"></select></div>
@@ -204,16 +204,17 @@ main{padding:10px}
    <h2>Daily stock take</h2>
    <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and physical closing count for the selected date. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
    <div class="grid">
-    <div class="field"><label>Collection date</label><input id="stockTakeDate" type="date" onchange="loadDailyStockTakes()"></div>
-    <div class="field"><label>Product</label><select id="stockTakeProduct"></select></div>
+    <div class="field"><label>Collection date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
+    <div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
     <div class="field"><label>Opening stock</label><input id="stOpening" type="number" min="0" step="0.001" value="0"></div>
-    <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0"></div>
-    <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0"></div>
+    <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
+    <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" readonly></div>
     <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0"></div>
     <div class="field"><label>Physical closing stock</label><input id="stClosing" type="number" min="0" step="0.001" value="0"></div>
     <div class="field"><label>Note / correction reason</label><input id="stNote" type="text" placeholder="Optional"></div>
    </div>
-   <p class="hint">Expected closing = opening + added − sold − wastage. Difference compares physical closing with expected closing.</p>
+   <p class="hint">Stock received and quantities sold are calculated automatically from saved stock-in and sales records. Expected closing = opening + added − sold − wastage. Saving reconciles live stock to physical closing when no later activity exists.
+   <div class="cards"><div class="card"><div class="muted">Sales for selected date</div><div class="metric" id="dailyStockSalesTotal">KSh 0</div></div><div class="card"><div class="muted">Quantity sold</div><div class="metric" id="dailyStockSoldTotal">0</div></div><div class="card"><div class="muted">Stock received</div><div class="metric" id="dailyStockAddedTotal">0</div></div></div></p>
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
    <div id="dailyStockTakeTable" class="tablewrap"></div>
@@ -225,7 +226,7 @@ main{padding:10px}
     <div class="field"><label>Category</label><select id="pc"><option>Beer</option><option>Spirits</option><option>Soft drinks</option><option>Water</option><option>Wines</option><option>Other</option></select></div>
     <div class="field"><label>Buying cost</label><input id="cost" type="number" min="0" step=".01"></div>
     <div class="field"><label>Selling price</label><input id="sell" type="number" min="0" step=".01"></div>
-    <div class="field"><label>Opening quantity</label><input id="qty" type="number" min="0" value="0"></div>
+    <div class="field"><label>Opening quantity</label><input id="qty" type="number" min="0" step="0.001" value="0"></div>
     <div class="field"><label>Low-stock alert</label><input id="alert" type="number" min="0" value="5"></div>
    </div>
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
@@ -704,42 +705,12 @@ window.changeCollectionDate=async function(){
  await loadManualBalance(true);
  await loadDailyStockTakes(true);
 };
-window.loadDailyStockTakes=async function(silent=false){
- if(!bid||!role||!$('stockTakeDate'))return;
- const day=$('stockTakeDate').value||date(new Date());
- const {data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});
- if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}
- dailyStockTakes=data||[];
- const rows=dailyStockTakes.map(x=>{
-  const p=products.find(z=>z.id===x.product_id);
-  const expected=Number(x.opening_qty||0)+Number(x.stock_added||0)-Number(x.sold_qty||0)-Number(x.wastage_qty||0);
-  return '<tr><td>'+esc(p?.name||x.product_id)+'</td><td>'+Number(x.opening_qty||0)+'</td><td>'+Number(x.stock_added||0)+'</td><td>'+Number(x.sold_qty||0)+'</td><td>'+Number(x.wastage_qty||0)+'</td><td>'+expected.toFixed(3)+'</td><td>'+Number(x.closing_qty||0)+'</td><td>'+(Number(x.closing_qty||0)-expected).toFixed(3)+'</td><td>'+esc(x.note||'')+'</td><td><button class="secondary small" onclick="editDailyStockTake(\' '+x.id+' \'.trim())">Edit</button></td></tr>';
- });
- $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Note','Actions'],rows);
- $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'.';
-};
-window.saveDailyStockTake=async function(){
- if(!role)return;
- const day=$('stockTakeDate').value,productId=$('stockTakeProduct').value;
- const ids=['stOpening','stAdded','stSold','stWastage','stClosing'];
- const vals=ids.map(id=>Number($(id).value));
- if(!day||!productId||vals.some((n,i)=>!Number.isFinite(n)||n<0||$(ids[i]).value===''))return alert('Enter a date, product and valid non-negative quantities.');
- const [opening,added,sold,wastage,closing]=vals;
- const existing=dailyStockTakes.find(x=>x.product_id===productId);
- const payload={business_id:bid,collection_date:day,product_id:productId,opening_qty:opening,stock_added:added,sold_qty:sold,wastage_qty:wastage,closing_qty:closing,note:$('stNote').value.trim(),updated_at:new Date().toISOString()};
- let result;
- if(existing)result=await sb.from('daily_stock_takes').update(payload).eq('id',existing.id).eq('business_id',bid).select().single();
- else result=await sb.from('daily_stock_takes').insert(payload).select().single();
- if(result.error)return alert('Could not save daily stock take: '+result.error.message);
- notify('Daily stock take saved for '+day+'.');await loadDailyStockTakes();
-};
-window.editDailyStockTake=async function(id){
- const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;
- $('stockTakeProduct').value=x.product_id;$('stOpening').value=x.opening_qty;$('stAdded').value=x.stock_added;
- $('stSold').value=x.sold_qty;$('stWastage').value=x.wastage_qty;$('stClosing').value=x.closing_qty;$('stNote').value=x.note||'';
- $('stockTakeStatus').textContent='Editing saved entry. Change values and press Save daily stock take.';
-};
-
+window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
+window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');return{sold:ss.reduce((a,x)=>a+Number(x.quantity||0),0),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
+window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
+window.loadDailyStockTakes=async function(silent=false){if(!bid||!role||!$('stockTakeDate'))return;const day=$('stockTakeDate').value||date(new Date());const{data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}dailyStockTakes=data||[];const ds=sales.filter(x=>date(x.created_at)===day),dm=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');$('dailyStockSalesTotal').textContent=money(ds.reduce((a,x)=>a+Number(x.total||0),0));$('dailyStockSoldTotal').textContent=ds.reduce((a,x)=>a+Number(x.quantity||0),0).toFixed(3);$('dailyStockAddedTotal').textContent=dm.reduce((a,x)=>a+Number(x.quantity||0),0).toFixed(3);const rows=dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),ex=Number(x.opening_qty||0)+Number(x.stock_added||0)-Number(x.sold_qty||0)-Number(x.wastage_qty||0);return '<tr><td>'+esc(p?.name||x.product_id)+'</td><td>'+Number(x.opening_qty||0).toFixed(3)+'</td><td>'+Number(x.stock_added||0).toFixed(3)+'</td><td>'+Number(x.sold_qty||0).toFixed(3)+'</td><td>'+Number(x.wastage_qty||0).toFixed(3)+'</td><td>'+ex.toFixed(3)+'</td><td>'+Number(x.closing_qty||0).toFixed(3)+'</td><td>'+(Number(x.closing_qty||0)-ex).toFixed(3)+'</td><td>'+esc(x.note||'')+'</td><td><button class="secondary small" onclick="editDailyStockTake(\''+x.id+'\')">Edit</button></td></tr>';});$('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Note','Actions'],rows);$('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Sales and stock-in are synced automatically.';if($('stockTakeProduct').value)populateDailyStockTakeInputs();};
+window.saveDailyStockTake=async function(){if(!role)return;const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value,opening=Number($('stOpening').value),wastage=Number($('stWastage').value),closing=Number($('stClosing').value);if(!day||!pid||![opening,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid quantities to 3 decimal places.');const{data,error}=await sb.rpc('club_neon_save_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});if(error)return alert('Could not save daily stock take: '+error.message);const out=Array.isArray(data)?data[0]:data;notify(out?.live_stock_adjusted?'Daily stock saved. Live stock reconciled to physical closing.':'Daily stock saved. Live stock unchanged because later transactions or a later stock take exist.');await refreshAll();};
+window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeProduct').value=x.product_id;$('stOpening').value=x.opening_qty;$('stAdded').value=x.stock_added;$('stSold').value=x.sold_qty;$('stWastage').value=x.wastage_qty;$('stClosing').value=x.closing_qty;$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry. Added and sold quantities recalculate from transactions when saved.';};
 window.recordSale=async()=>{
  const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
  const q=Number($('sq').value);
@@ -747,7 +718,7 @@ window.recordSale=async()=>{
  const sid=role==='staff'?currentStaffId:$('sstaff').value;
  const st=staff.find(x=>x.id===sid);
 
- if(!p||!Number.isInteger(q)||q<1)return alert('Choose a product and valid quantity.');
+ if(!p||!Number.isFinite(q)||q<=0||Math.round(q*1000)!==q*1000)return alert('Choose a product and valid quantity (up to 3 decimal places).');
  if(!Number.isFinite(price)||price<0)return alert('Enter a valid selling price.');
  if(q>p.stock)return alert('Not enough stock. Available: '+p.stock);
 
@@ -774,7 +745,7 @@ window.editSale=async id=>{
  const p=active.find(z=>z.name.toLowerCase()===choice.trim().toLowerCase());
  if(!p)return alert('Product name not found.');
  const q=Number(prompt('Correct quantity:',x.quantity));
- if(!Number.isInteger(q)||q<1)return alert('Invalid quantity.');
+ if(!Number.isFinite(q)||q<=0||Math.round(q*1000)!==q*1000)return alert('Invalid quantity (up to 3 decimal places).');
  const price=Number(prompt('Correct unit selling price:',x.unit_price));
  if(!Number.isFinite(price)||price<0)return alert('Invalid selling price.');
  const payment=prompt('Payment method (Cash or M-Pesa):',x.payment_method);
@@ -807,7 +778,7 @@ window.saveProduct=async()=>{
  const name=$('pn').value.trim(),cat=$('pc').value;
  const cost=Number($('cost').value),sell=Number($('sell').value);
  const qty=Number($('qty').value),alertAt=Number($('alert').value);
- if(!name||cost<0||sell<0||!Number.isInteger(qty)||qty<0)return alert('Check product details.');
+ if(!name||cost<0||sell<0||!Number.isFinite(qty)||qty<0||Math.round(qty*1000)!==qty*1000)return alert('Check product details.');
 
  const {data:old,error:findErr}=await sb.from('products').select('*').eq('business_id',bid).ilike('name',name).maybeSingle();
  if(findErr)return alert(findErr.message);
@@ -859,7 +830,7 @@ window.editProduct=async id=>{
 window.adjustStock=async id=>{
  const p=products.find(x=>x.id===id);if(!p)return;
  const n=Number(prompt('Enter CORRECT current stock count for '+p.name,p.stock));
- if(!Number.isInteger(n)||n<0)return alert('Enter a whole number of zero or more.');
+ if(!Number.isFinite(n)||n<0||Math.round(n*1000)!==n*1000)return alert('Enter a valid stock quantity (up to 3 decimal places).');
  const diff=n-Number(p.stock);if(diff===0)return alert('Stock figure is unchanged.');
  if(!confirm(`Change ${p.name} stock from ${p.stock} to ${n}?`))return;
  const {error}=await sb.from('products').update({stock:n}).eq('id',id).eq('business_id',bid);
@@ -884,7 +855,7 @@ window.toggleProduct=async id=>{
 window.restock=async id=>{
  const p=products.find(x=>x.id===id);if(!p)return;
  const q=Number(prompt('Quantity to add for '+p.name));
- if(!Number.isInteger(q)||q<1)return;
+ if(!Number.isFinite(q)||q<=0||Math.round(q*1000)!==q*1000)return alert('Enter a valid quantity (up to 3 decimal places).');
  const c=Number(prompt('New unit buying cost',p.buying_cost));
  if(!Number.isFinite(c)||c<0)return;
  const {error}=await sb.rpc('club_neon_add_stock',{
