@@ -142,6 +142,7 @@ main{padding:10px}
  <section id="dashboard" class="page">
   <h1>Business overview</h1>
   <p class="hint" id="today"></p>
+  <div class="panel"><div class="field"><label>Business collection date (shared across daily panels)</label><input id="collectionDate" type="date" onchange="changeCollectionDate()"></div><p class="hint">Choose a date to review that day’s sales, expenses, stock movements and cash count. Use edit controls to correct saved entries.</p></div>
   <div class="cards">
    <div class="card"><div class="muted">Today's total sales</div><div class="metric" id="ds">KSh 0</div></div>
    <div class="card"><div class="muted">Today's cash in hand</div><div class="metric" id="cashToday">KSh 0</div></div>
@@ -308,6 +309,7 @@ const sb=createClient(
 
 let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
 let dailyBalance=null, dailyStockTakes=[];
+let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
 let refreshBusy=false;
@@ -592,8 +594,10 @@ window.saveManualBalance=async function(){
 
 function render(){
  const today=date(new Date());
- const ss=sales.filter(x=>date(x.created_at)===today);
- const ee=expenses.filter(x=>date(x.created_at)===today);
+ const day=selectedCollectionDate||$('collectionDate')?.value||today;
+ selectedCollectionDate=day;
+ const ss=sales.filter(x=>date(x.created_at)===day);
+ const ee=expenses.filter(x=>date(x.created_at)===day);
  const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
  const cashToday=ss.filter(x=>String(x.payment_method||'').trim().toLowerCase()==='cash').reduce((a,x)=>a+Number(x.total||0),0);
  const mpesaToday=ss.filter(x=>['m-pesa','mpesa','m-pesa till'].includes(String(x.payment_method||'').trim().toLowerCase())).reduce((a,x)=>a+Number(x.total||0),0);
@@ -601,8 +605,10 @@ function render(){
  const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
 
  if(role==='admin'){
-  $('today').textContent=new Date().toLocaleDateString('en-KE',{dateStyle:'full'});
-  if(!$('balanceDate').value)$('balanceDate').value=today;
+  $('today').textContent='Collection for '+new Date(day+'T12:00:00').toLocaleDateString('en-KE',{dateStyle:'full'});
+  if(!$('collectionDate').value)$('collectionDate').value=today;
+  if(!$('balanceDate').value)$('balanceDate').value=day;
+  if(!$('stockTakeDate').value)$('stockTakeDate').value=day;
   $('ds').textContent=money(s);
   $('cashToday').textContent=money(cashToday);
   $('mpesaToday').textContent=money(mpesaToday);
@@ -653,7 +659,7 @@ function render(){
  <button class="secondary small" onclick="restock('${p.id}')">Stock in</button></td></tr>`));
 
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
- sales.map(x=>`<tr>
+ sales.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr>
  <td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td>
  <td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td>
  <td>${esc(x.staff_name)}</td>
@@ -662,7 +668,7 @@ function render(){
 
  if(role==='admin'){
   $('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment','Actions'],
-  expenses.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  expenses.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(x.description)}</td><td>${esc(x.category)}</td><td>${money(x.amount)}</td>
   <td>${esc(x.payment_method)}</td><td>
   <button class="secondary small" onclick="editExpense('${x.id}')">Edit</button>
@@ -679,7 +685,7 @@ function render(){
  if(role==='admin'){
   $('stockHistoryPanel').style.display='';
   $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
-  moves.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
   <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
  }else{
@@ -689,6 +695,15 @@ function render(){
 }
 
 
+window.changeCollectionDate=async function(){
+ const day=$('collectionDate').value||date(new Date());
+ selectedCollectionDate=day;
+ if($('balanceDate'))$('balanceDate').value=day;
+ if($('stockTakeDate'))$('stockTakeDate').value=day;
+ render();
+ await loadManualBalance(true);
+ await loadDailyStockTakes(true);
+};
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
  const day=$('stockTakeDate').value||date(new Date());
@@ -1008,6 +1023,8 @@ function go(p){
 }
 
 function setDates(){
+ if($('collectionDate'))$('collectionDate').value=date(new Date());
+ selectedCollectionDate=date(new Date());
  $('from').value=date(new Date(new Date().getFullYear(),new Date().getMonth(),1));
  $('to').value=date(new Date());
 }
