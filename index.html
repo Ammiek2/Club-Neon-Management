@@ -163,7 +163,7 @@ main{padding:10px}
     <div class="field"><label>Note (optional)</label><input id="balanceNote" type="text" placeholder="e.g. Closing balance"></div>
    </div>
    <div class="cards" style="margin-top:12px">
-    <div class="card"><div class="muted">Recorded total sales for selected date</div><div class="metric" id="manualSalesTotal">KSh 0</div></div>
+    <div class="card"><div class="muted">Calculated total sales for selected date</div><div class="metric" id="manualSalesTotal">KSh 0</div></div>
     <div class="card"><div class="muted">Manually entered total expenses</div><div class="metric" id="manualExpensesTotal">KSh 0</div></div>
     <div class="card"><div class="muted">Balance after expenses</div><div class="metric" id="manualBalanceAfter">KSh 0</div></div>
    </div>
@@ -766,6 +766,10 @@ window.loadDailyStockTakes=async function(silent=false){
   const current=Number(p?.stock||0);
   return '<tr><td>'+esc(p?.name||x.product_id)+'</td><td>'+Number(x.opening_qty||0).toFixed(3)+'</td><td>'+Number(x.stock_added||0).toFixed(3)+'</td><td>'+Number(x.sold_qty||0).toFixed(3)+'</td><td>'+Number(x.wastage_qty||0).toFixed(3)+'</td><td>'+ex.toFixed(3)+'</td><td>'+Number(x.closing_qty||0).toFixed(3)+'</td><td>'+(Number(x.closing_qty||0)-ex).toFixed(3)+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+esc(x.note||'')+'</td><td><button class="secondary small" onclick="editDailyStockTake(\\''+x.id+'\\')">Edit</button></td></tr>';
  });
+ $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
+  ...ds.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\\''+x.id+'\\')">Edit</button> <button class="danger small" onclick="deleteSale(\\''+x.id+'\\')">Delete</button></td></tr>'),
+  ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
+ ]);
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
  $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
