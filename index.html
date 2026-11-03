@@ -81,7 +81,7 @@ main{padding:10px}
    <h2>Admin login</h2>
    <label class="hint">Admin PIN</label>
    <input id="adminPin" type="password" inputmode="numeric" maxlength="12" placeholder="Enter admin PIN">
-   <button onclick="loginAdmin()">Unlock admin</button>
+   <button id="unlockAdminButton" type="button" onclick="document.getElementById('loginMessage').textContent='Checking admin access…';if(typeof window.loginAdmin==='function'){window.loginAdmin();}else{document.getElementById('loginMessage').textContent='Login script did not load. Refresh the app and try again.';}">Unlock admin</button>
    <button class="secondary" onclick="backLogin()">Back</button>
   </div>
 
@@ -91,7 +91,7 @@ main{padding:10px}
    <select id="staffChoice"><option value="">Loading staff...</option></select>
    <label class="hint">Your PIN</label>
    <input id="staffPin" type="password" inputmode="numeric" maxlength="8" placeholder="Enter your PIN">
-   <button onclick="loginStaff()">Login as staff</button>
+   <button id="unlockStaffButton" type="button" onclick="document.getElementById('loginMessage').textContent='Checking staff access…';if(typeof window.loginStaff==='function'){window.loginStaff();}else{document.getElementById('loginMessage').textContent='Login script did not load. Refresh the app and try again.';}">Login as staff</button>
    <button class="secondary" onclick="showEnrol()">First time? Create your PIN</button>
    <button class="secondary" onclick="backLogin()">Back</button>
   </div>
