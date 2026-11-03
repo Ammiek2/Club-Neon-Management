@@ -479,7 +479,7 @@ window.refreshAll=async(silent=false)=>{
 
  const names=role==='admin'
  ?['products','sales','expenses','staff','stock_movements','daily_payment_balances']
- :['products','sales','stock_movements'];
+ :['products','sales','stock_movements','daily_stock_takes'];
 
  const res=await Promise.all(names.map(t=>
   sb.from(t).select('*').eq('business_id',bid).order('created_at',{ascending:false}).range(0,4999)
@@ -515,7 +515,7 @@ function startLiveSync(){
  stopLiveSync();
  if(!bid||!role)return;
  const tables=role==='admin'
-  ?['products','sales','expenses','staff','stock_movements']
+  ?['products','sales','expenses','staff','stock_movements','daily_stock_takes']
   :['products','sales','stock_movements'];
  let channel=sb.channel('club-neon-live-'+bid+'-'+role);
  for(const table of tables){
