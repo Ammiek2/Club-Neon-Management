@@ -232,7 +232,7 @@ main{padding:10px}
    </div>
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
   </div>
-  <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Full stock and product management for both admin and staff.</p><div id="stockTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Search by product name or category, then use Stock in or Correct stock without scrolling through the full list.</p><div class="field" style="margin:10px 0"><label for="stockProductSearch">Find a product</label><input id="stockProductSearch" type="search" placeholder="Type Guinness, Tusker, beer..." oninput="filterStockProducts()"></div><div id="stockTable" class="tablewrap"></div></div>
   <div class="panel" id="stockHistoryPanel"><h2>Stock movement history (stock-in, sales and corrections)</h2><div id="stockHistory" class="tablewrap"></div></div>
  </section>
 
@@ -711,6 +711,8 @@ function render(){
  <button class="${p.active===false?'secondary':'danger'} small" onclick="toggleProduct('${p.id}')">${p.active===false?'Restore':'Archive'}</button>
  <button class="secondary small" onclick="restock('${p.id}')">Stock in</button></td></tr>`));
 
+ filterStockProducts();
+
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
  sales.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr>
  <td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td>
@@ -867,6 +869,14 @@ window.deleteSale=async id=>{
  const {error}=await sb.rpc('club_neon_delete_sale',{p_business:bid,p_sale_id:id});
  if(error)alert(error.message);
  else{notify('Sale DELETED. Stock and reports recalculated.');await refreshAll();}
+};
+
+
+window.filterStockProducts=function(){
+ const input=$('stockProductSearch');
+ const query=String(input?.value||'').trim().toLowerCase();
+ const rows=$('stockTable')?.querySelectorAll('tbody tr')||[];
+ rows.forEach(row=>{row.style.display=row.textContent.toLowerCase().includes(query)?'':'none';});
 };
 
 window.saveProduct=async()=>{
