@@ -73,8 +73,8 @@ main{padding:10px}
   <div id="loginChoices">
    <h1>Welcome</h1>
    <p class="hint">Choose how you want to access the system.</p>
-   <button onclick="showAdminLogin()">ADMIN ACCESS</button>
-   <button class="secondary" onclick="showStaffLogin()">STAFF ACCESS</button>
+   <button onclick="document.getElementById('loginChoices').classList.add('hidden');document.getElementById('adminLogin').classList.remove('hidden');document.getElementById('adminPin').value='';document.getElementById('loginMessage').textContent='';">ADMIN ACCESS</button>
+   <button class="secondary" onclick="document.getElementById('loginChoices').classList.add('hidden');document.getElementById('staffLogin').classList.remove('hidden');document.getElementById('staffPin').value='';document.getElementById('loginMessage').textContent='';">STAFF ACCESS</button>
   </div>
 
   <div id="adminLogin" class="hidden">
