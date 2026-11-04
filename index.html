@@ -766,7 +766,7 @@ function render(){
   $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost','Actions'],
   moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
-  <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
+  <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
  }else{
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
