@@ -719,8 +719,21 @@ function render(){
 
  filterStockProducts();
 
+ const salesForDay=sales.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date())));
+ const recordedSales=salesForDay.reduce((a,x)=>a+Number(x.total||0),0);
+ const recordedQty=salesForDay.reduce((a,x)=>a+Number(x.quantity||0),0);
+ const cashSales=salesForDay.filter(x=>String(x.payment_method||'').toLowerCase()==='cash').reduce((a,x)=>a+Number(x.total||0),0);
+ const mpesaSales=salesForDay.filter(x=>String(x.payment_method||'').toLowerCase().includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
+ const summaryItems=[
+  ['Recorded sales',money(recordedSales)],
+  ['Quantity sold',recordedQty.toLocaleString('en-KE',{maximumFractionDigits:3})],
+  ['Cash',money(cashSales)],
+  ['M-Pesa',money(mpesaSales)]
+ ];
+ $('salesHistoryTotals').innerHTML=summaryItems.map(([label,value])=>'<div class="sales-total"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
+
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
- sales.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr>
+ salesForDay.map(x=>`<tr>
  <td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td>
  <td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td>
  <td>${esc(x.staff_name)}</td>
@@ -777,19 +790,6 @@ window.loadDailyStockTakes=async function(silent=false){
  const ds=sales.filter(x=>date(x.created_at)===day);
  const dm=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');
  const totals=stockSalesForDate(day,dailyStockTakes);
- const recordedSales=ds.reduce((a,x)=>a+Number(x.total||0),0);
- const recordedQty=ds.reduce((a,x)=>a+Number(x.quantity||0),0);
- const cashSales=ds.filter(x=>String(x.payment_method||'').toLowerCase()==='cash').reduce((a,x)=>a+Number(x.total||0),0);
- const mpesaSales=ds.filter(x=>String(x.payment_method||'').toLowerCase().includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
- const summaryItems=[
-  ['Recorded sales',money(recordedSales)],
-  ['Quantity sold (recorded)',recordedQty.toLocaleString('en-KE',{maximumFractionDigits:3})],
-  ['Cash received (recorded)',money(cashSales)],
-  ['M-Pesa received (recorded)',money(mpesaSales)],
-  ['Unallocated stock-count estimate',money(totals.unallocatedSales)],
-  ['Total incl. stock-count estimate',money(totals.totalSales)]
- ];
- $('salesHistoryTotals').innerHTML=summaryItems.map(([label,value])=>'<div class="sales-total"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
  const transactionSold=ds.reduce((a,x)=>a+Number(x.quantity||0),0);
  const stockTakeSold=products.reduce((sum,p)=>{
   const saved=dailyStockTakes.find(x=>x.product_id===p.id);
