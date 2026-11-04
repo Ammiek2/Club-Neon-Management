@@ -110,6 +110,9 @@ main{padding:10px}
 
   <div id="staffLogin" class="hidden">
    <h2>Staff login</h2>
+   <label class="hint">Business code (for staff of another business)</label>
+   <input id="staffBusinessCode" type="text" maxlength="10" placeholder="Enter business code, then load staff">
+   <button class="secondary" type="button" onclick="loadStaffForBusiness()">Load business staff</button>
    <label class="hint">Select your name</label>
    <select id="staffChoice"><option value="">Loading staff...</option></select>
    <label class="hint">Your PIN</label>
@@ -346,7 +349,7 @@ let bid=null,activeBusinessName='Club Neon',products=[],sales=[],expenses=[],sta
 let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[];
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
-let staffDirectory=[];
+let staffDirectory=[],pendingStaffBusinessName='Club Neon';
 let refreshBusy=false;
 let refreshPending=false;
 let realtimeChannel=null;
@@ -458,6 +461,22 @@ async function loadStaffDirectory(){
  $('enrolStaff').innerHTML=options;
 }
 
+window.loadStaffForBusiness=async()=>{
+ const code=$('staffBusinessCode').value.trim().toUpperCase();
+ if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
+ loginError('Loading staff list...');
+ try{
+  const {data,error}=await sb.rpc('club_neon_staff_directory_for_code',{p_business_code:code});
+  if(error)throw error;
+  staffDirectory=data||[];
+  pendingStaffBusinessName=staffDirectory[0]?.business_name||'Business';
+  const options='<option value="">Select your name</option>'+staffDirectory.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('');
+  $('staffChoice').innerHTML=options;$('enrolStaff').innerHTML=options;
+  if(!staffDirectory.length)loginError('No active staff found for this business yet.');
+  else loginError('Staff list loaded for '+pendingStaffBusinessName+'. Select your name and enter your PIN.');
+ }catch(e){loginError(e.message||'Could not load staff list.');}
+};
+
 async function checkRole(){
  const {data,error}=await sb.rpc('club_neon_current_role');
  if(error)throw error;
@@ -496,7 +515,7 @@ window.loginStaff=async()=>{
   if(data!==true)throw new Error('Staff PIN was not accepted. Check that this staff member has an enrolled PIN.');
   const person=staffDirectory.find(x=>x.id===id);
   role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
-  const selected=await sb.rpc('club_neon_public_business_id');if(selected.error)throw selected.error;bid=selected.data;activeBusinessName='Club Neon';
+  const selected=await sb.rpc('club_neon_public_business_id');if(selected.error)throw selected.error;bid=selected.data;activeBusinessName=pendingStaffBusinessName||'Club Neon';
   await enterApp();
  }catch(e){
   console.error('Staff login failed:',e);
