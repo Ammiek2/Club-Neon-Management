@@ -767,7 +767,7 @@ function render(){
   $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost','Actions'],
   moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
-  <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
+  <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':String(x.movement_type).toLowerCase()==='correction'?'STOCK CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
  }else{
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
@@ -1060,7 +1060,7 @@ window.adjustStock=async id=>{
  const {error}=await sb.from('products').update({stock:n}).eq('id',id).eq('business_id',bid);
  if(error)return alert(error.message);
  const movement=await sb.from('stock_movements').insert({
-  business_id:bid,product_id:id,movement_type:'stock_adjustment',
+  business_id:bid,product_id:id,movement_type:'correction',
   quantity:diff,unit_cost:p.buying_cost,note:`Stock corrected from ${p.stock} to ${n}`
  });
  if(movement.error)alert('Stock updated, but movement history could not be saved: '+movement.error.message);
