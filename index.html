@@ -652,9 +652,9 @@ function render(){
  const ss=sales.filter(x=>date(x.created_at)===day);
  const ee=expenses.filter(x=>date(x.created_at)===day);
  const s=ss.reduce((a,x)=>a+Number(x.total||0),0);
- const paymentKey=x=>String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'');
- const cashToday=ss.filter(x=>paymentKey(x)==='cash'||paymentKey(x).startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
- const mpesaToday=ss.filter(x=>paymentKey(x).startsWith('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
+ const normalizeSalesPayment=x=>String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'');
+ const cashToday=ss.filter(x=>normalizeSalesPayment(x)==='cash'||normalizeSalesPayment(x).startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
+ const mpesaToday=ss.filter(x=>normalizeSalesPayment(x).startsWith('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
  const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
  const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
 
@@ -723,8 +723,8 @@ function render(){
  // The recorded total always includes every saved sale, regardless of payment method.
  const recordedSales=salesForDay.reduce((a,x)=>a+Number(x.total||0),0);
  const recordedQty=salesForDay.reduce((a,x)=>a+Number(x.quantity||0),0);
- const isCash=x=>paymentKey(x).startsWith('cash');
- const isMpesa=x=>paymentKey(x).includes('mpesa');
+ const isCash=x=>normalizeSalesPayment(x).startsWith('cash');
+ const isMpesa=x=>normalizeSalesPayment(x).includes('mpesa');
  const cashSales=salesForDay.filter(isCash).reduce((a,x)=>a+Number(x.total||0),0);
  const mpesaSales=salesForDay.filter(isMpesa).reduce((a,x)=>a+Number(x.total||0),0);
  const otherPaymentSales=salesForDay.filter(x=>!isCash(x)&&!isMpesa(x)).reduce((a,x)=>a+Number(x.total||0),0);
