@@ -1377,7 +1377,9 @@ async function collectReportData(){
  const salesTotal=saleRows.reduce((n,x)=>n+Number(x.total||0),0)+inferred.reduce((n,x)=>n+Number(x.total||0),0);
  const costTotal=saleRows.reduce((n,x)=>n+Number(x.cost_total||0),0)+inferred.reduce((n,x)=>n+Number(x.cost_total||0),0);
  const expenseTotal=expenseRows.reduce((n,x)=>n+Number(x.amount||0),0);
- return {from,to,type,saleRows,expenseRows,moveRows,takeRows,inferred,salesTotal,costTotal,expenseTotal,gross:salesTotal-costTotal,net:salesTotal-costTotal-expenseTotal};
+ const namedMoveRows=moveRows.map(x=>({...x,product_name:productMap.get(x.product_id)?.name||'Unknown product'}));
+ const namedTakeRows=takeRows.map(x=>({...x,product_name:productMap.get(x.product_id)?.name||'Unknown product'}));
+ return {from,to,type,saleRows,expenseRows,moveRows:namedMoveRows,takeRows:namedTakeRows,inferred,salesTotal,costTotal,expenseTotal,gross:salesTotal-costTotal,net:salesTotal-costTotal-expenseTotal};
 }
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
 function reportRows(r){
@@ -1387,8 +1389,8 @@ function reportRows(r){
   [...r.saleRows,...r.inferred].forEach(x=>rows.push(['Sale',x.created_at,x.product_name,'',x.quantity,x.unit_price??x.unit_price,x.total,x.cost_total,x.payment_method,x.staff_name,x.note||'']));
  }
  if(['all','expenses'].includes(type))r.expenseRows.forEach(x=>rows.push(['Expense',x.created_at,x.description,x.category,'','',x.amount,'',x.payment_method,x.entered_by||'', '']));
- if(['all','stock'].includes(type))r.moveRows.forEach(x=>rows.push(['Stock movement',x.created_at,x.product_id,x.movement_type,x.quantity,x.unit_cost,x.quantity*Number(x.unit_cost||0),'','',x.entered_by||'',x.note||'']));
- if(['all','takes'].includes(type))r.takeRows.forEach(x=>rows.push(['Daily stock take',x.collection_date,x.product_id,'Opening / added / sold / wastage / closing',[x.opening_qty,x.stock_added,x.sold_qty,x.wastage_qty,x.closing_qty].join(' / '),'','','','','',x.note||'']));
+ if(['all','stock'].includes(type))r.moveRows.forEach(x=>rows.push(['Stock movement',x.created_at,x.product_name,x.movement_type,x.quantity,x.unit_cost,x.quantity*Number(x.unit_cost||0),'','',x.entered_by||'',x.note||'']));
+ if(['all','takes'].includes(type))r.takeRows.forEach(x=>rows.push(['Daily stock take',x.collection_date,x.product_name,'Opening / added / sold / wastage / closing',[x.opening_qty,x.stock_added,x.sold_qty,x.wastage_qty,x.closing_qty].join(' / '),'','','','','',x.note||'']));
  if(type==='profit')rows.push(['Profit & loss',r.from+' to '+r.to,'Sales total','','','',r.salesTotal,'','','',''],['Profit & loss',r.from+' to '+r.to,'Cost of goods','','','',r.costTotal,'','','',''],['Profit & loss',r.from+' to '+r.to,'Gross profit','','','',r.gross,'','','',''],['Profit & loss',r.from+' to '+r.to,'Expenses','','','',r.expenseTotal,'','','',''],['Profit & loss',r.from+' to '+r.to,'Net result','','','',r.net,'','','','']);
  return rows;
 }
