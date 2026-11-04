@@ -723,7 +723,6 @@ function render(){
  // The recorded total always includes every saved sale, regardless of payment method.
  const recordedSales=salesForDay.reduce((a,x)=>a+Number(x.total||0),0);
  const recordedQty=salesForDay.reduce((a,x)=>a+Number(x.quantity||0),0);
- const paymentKey=x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'');
  const isCash=x=>paymentKey(x).startsWith('cash');
  const isMpesa=x=>paymentKey(x).includes('mpesa');
  const cashSales=salesForDay.filter(isCash).reduce((a,x)=>a+Number(x.total||0),0);
