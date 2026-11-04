@@ -418,7 +418,7 @@ window.createBusiness=async()=>{
 
 window.accessBusiness=async()=>{
  const code=$('businessCode').value.trim().toUpperCase(),pin=$('businessOwnerPin').value.replace(/[^0-9]/g,'');
- if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
+ if(!/^[A-Z0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
  if(!/^[0-9]{6,8}$/.test(pin))return loginError('Enter your 6–8 digit owner PIN.');
  loginError('Checking business code and PIN...');
  try{
@@ -436,7 +436,7 @@ window.recoverBusinessPin=async()=>{
  const code=$('businessCode').value.trim().toUpperCase();
  const recovery=$('businessRecoveryCode').value.trim().toUpperCase();
  const pin=$('businessNewRecoveryPin').value.replace(/[^0-9]/g,'');
- if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter your business code first.');
+ if(!/^[A-Z0-9]{10}$/.test(code))return loginError('Enter your business code first.');
  if(!/^[A-F0-9]{20}$/.test(recovery))return loginError('Enter the 20-character recovery code.');
  if(!/^[0-9]{6,8}$/.test(pin))return loginError('New owner PIN must be 6–8 digits.');
  loginError('Verifying recovery code...');
@@ -487,7 +487,7 @@ async function loadStaffDirectory(){
 
 window.loadStaffForBusiness=async()=>{
  const code=$('staffBusinessCode').value.trim().toUpperCase();
- if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
+ if(!/^[A-Z0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
  loginError('Loading staff list...');
  try{
   const {data,error}=await sb.rpc('club_neon_staff_directory_for_code',{p_business_code:code});
