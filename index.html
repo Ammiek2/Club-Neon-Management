@@ -402,7 +402,7 @@ window.showBusinessCreate=()=>{hideLoginPanels();$('businessCreate').classList.r
 window.createBusiness=async()=>{
  const name=$('newBusinessName').value.trim(),owner=$('newOwnerName').value.trim(),pin=$('newOwnerPin').value.trim();
  if(name.length<2||owner.length<2)return loginError('Enter the business name and owner name.');
- if(!/^\\d{6,8}$/.test(pin))return loginError('Owner PIN must contain 6–8 digits.');
+ if(!/^\d{6,8}$/.test(pin))return loginError('Owner PIN must contain 6–8 digits.');
  loginError('Creating your separate business workspace...');
  try{
   const {data,error}=await sb.rpc('club_neon_create_business',{p_business_name:name,p_owner_name:owner,p_pin:pin});
@@ -411,7 +411,7 @@ window.createBusiness=async()=>{
   if(!row?.business_id||!row?.business_code||!row?.recovery_code)throw new Error('Business was created but its access details were not returned. Contact support before retrying.');
   bid=row.business_id;activeBusinessName=name;role='admin';currentStaffId=null;currentStaffName=owner;
   loginError('Business created. Save your business code: '+row.business_code);
-  alert('BUSINESS CREATED\\n\\nBusiness: '+name+'\\nBusiness code: '+row.business_code+'\\nOwner PIN: the PIN you just created.\\nRecovery code: '+row.recovery_code+'\\n\\nSAVE BOTH CODES SAFELY. The recovery code is shown only once and is needed if you forget your owner PIN.');
+  alert('BUSINESS CREATED\n\nBusiness: '+name+'\nBusiness code: '+row.business_code+'\nOwner PIN: the PIN you just created.\nRecovery code: '+row.recovery_code+'\n\nSAVE BOTH CODES SAFELY. The recovery code is shown only once and is needed if you forget your owner PIN.');
   await enterApp();
  }catch(e){loginError(e.message||'Could not create business.');}
 };
@@ -419,7 +419,7 @@ window.createBusiness=async()=>{
 window.accessBusiness=async()=>{
  const code=$('businessCode').value.trim().toUpperCase(),pin=$('businessOwnerPin').value.trim();
  if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
- if(!/^\\d{6,8}$/.test(pin))return loginError('Enter your 6–8 digit owner PIN.');
+ if(!/^\d{6,8}$/.test(pin))return loginError('Enter your 6–8 digit owner PIN.');
  loginError('Checking business code and PIN...');
  try{
   const {data,error}=await sb.rpc('club_neon_access_business',{p_business_code:code,p_pin:pin});
@@ -438,7 +438,7 @@ window.recoverBusinessPin=async()=>{
  const pin=$('businessNewRecoveryPin').value.trim();
  if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter your business code first.');
  if(!/^[A-F0-9]{20}$/.test(recovery))return loginError('Enter the 20-character recovery code.');
- if(!/^\\d{6,8}$/.test(pin))return loginError('New owner PIN must be 6–8 digits.');
+ if(!/^\d{6,8}$/.test(pin))return loginError('New owner PIN must be 6–8 digits.');
  loginError('Verifying recovery code...');
  try{
   const {data,error}=await sb.rpc('club_neon_recover_owner_pin',{p_business_code:code,p_recovery_code:recovery,p_new_pin:pin});
