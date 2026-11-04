@@ -86,13 +86,14 @@ main{padding:10px}
    <p class="hint">Enter your business code and owner PIN. No email or password required.</p>
    <label class="hint">Business code</label><input id="businessCode" type="text" maxlength="10" placeholder="10-character business code" autocomplete="off">
    <label class="hint">Owner PIN</label><input id="businessOwnerPin" type="password" inputmode="numeric" maxlength="8" placeholder="6–8 digit PIN">
-   <button onclick="accessBusiness()">Unlock business</button>
-   <div class="panel" style="margin-top:14px">
-    <h3>Forgot owner PIN?</h3>
+   <button type="button" onclick="accessBusiness()">Unlock business</button>
+   <button type="button" class="secondary" onclick="document.getElementById('businessRecoveryPanel').classList.toggle('hidden')">Forgot owner PIN?</button>
+   <div id="businessRecoveryPanel" class="panel hidden" style="margin-top:14px">
+    <h3>Reset forgotten owner PIN</h3>
     <p class="hint">Use the recovery code saved when the business was created.</p>
     <label class="hint">Recovery code</label><input id="businessRecoveryCode" type="text" maxlength="20" placeholder="20-character recovery code">
     <label class="hint">New owner PIN (6–8 digits)</label><input id="businessNewRecoveryPin" type="password" inputmode="numeric" maxlength="8" placeholder="Create new PIN">
-    <button class="secondary" onclick="recoverBusinessPin()">Reset owner PIN</button>
+    <button type="button" class="secondary" onclick="recoverBusinessPin()">Reset owner PIN</button>
    </div>
    <button class="secondary" onclick="backLogin()">Back</button>
   </div>
