@@ -803,9 +803,9 @@ window.loadDailyStockTakes=async function(silent=false){
  },0);
  // Sales History uses the same reconciled total as Daily Stock Take: saved sales plus
  // stock-count quantities not already represented by individual sale transactions.
- const historyCash=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'').startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
- const historyMpesa=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'').includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
- const historyOther=ds.filter(x=>{const k=String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'');return !k.startsWith('cash')&&!k.includes('mpesa');}).reduce((a,x)=>a+Number(x.total||0),0);
+ const historyCash=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'').startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
+ const historyMpesa=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'').includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
+ const historyOther=ds.filter(x=>{const k=String(x.payment_method||'').toLowerCase().replace(/[\s_-]/g,'');return !k.startsWith('cash')&&!k.includes('mpesa');}).reduce((a,x)=>a+Number(x.total||0),0);
  $('salesHistoryTotals').innerHTML=[
   ['Total sales',money(totals.totalSales)],
   ['Quantity sold',stockTakeSold.toLocaleString('en-KE',{maximumFractionDigits:3})],
