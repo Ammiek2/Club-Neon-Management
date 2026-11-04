@@ -475,6 +475,7 @@ window.loginAdmin=async()=>{
   const r=await checkRole();
   if(r!=='admin')throw new Error('Admin access was not confirmed. Please try again.');
   role='admin';currentStaffId=null;currentStaffName='Administrator';
+  const selected=await sb.rpc('club_neon_public_business_id');if(selected.error)throw selected.error;bid=selected.data;activeBusinessName='Club Neon';
   loginError('PIN accepted. Opening Club Neon...');
   await enterApp();
  }catch(e){
@@ -495,6 +496,7 @@ window.loginStaff=async()=>{
   if(data!==true)throw new Error('Staff PIN was not accepted. Check that this staff member has an enrolled PIN.');
   const person=staffDirectory.find(x=>x.id===id);
   role='staff';currentStaffId=id;currentStaffName=person?.name||'Staff';
+  const selected=await sb.rpc('club_neon_public_business_id');if(selected.error)throw selected.error;bid=selected.data;activeBusinessName='Club Neon';
   await enterApp();
  }catch(e){
   console.error('Staff login failed:',e);
@@ -552,7 +554,7 @@ async function enterApp(){
 window.logout=async()=>{
  stopLiveSync();
  try{await sb.rpc('club_neon_pin_logout');}catch(e){}
- role=null;currentStaffId=null;currentStaffName=null;
+ role=null;currentStaffId=null;currentStaffName=null;bid=null;activeBusinessName='Club Neon';
  products=[];sales=[];expenses=[];staff=[];moves=[];
  $('mainNav').classList.add('hidden');
  $('appMain').classList.add('hidden');
