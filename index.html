@@ -342,7 +342,7 @@ const sb=createClient(
  {auth:{autoRefreshToken:true,persistSession:true}}
 );
 
-let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
+let bid=null,activeBusinessName='Club Neon',products=[],sales=[],expenses=[],staff=[],moves=[];
 let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[];
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
@@ -399,7 +399,7 @@ window.createBusiness=async()=>{
   if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;
   if(!row?.business_id||!row?.business_code)throw new Error('Business was created but its access details were not returned. Contact support before retrying.');
-  bid=row.business_id;role='admin';currentStaffId=null;currentStaffName=owner;
+  bid=row.business_id;activeBusinessName=name;role='admin';currentStaffId=null;currentStaffName=owner;
   loginError('Business created. Save your business code: '+row.business_code);
   alert('BUSINESS CREATED\\n\\nBusiness: '+name+'\\nBusiness code: '+row.business_code+'\\nOwner PIN: the PIN you just created.\\n\\nSave this code safely. You need it with your PIN on another device.');
   await enterApp();
@@ -416,7 +416,7 @@ window.accessBusiness=async()=>{
   if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;
   if(!row?.business_id)throw new Error('Business access was not confirmed.');
-  bid=row.business_id;role='admin';currentStaffId=null;currentStaffName=row.owner_name||'Owner';
+  bid=row.business_id;activeBusinessName=row.business_name||'Business';role='admin';currentStaffId=null;currentStaffName=row.owner_name||'Owner';
   loginError('Access granted. Opening '+row.business_name+'...');
   await enterApp();
  }catch(e){loginError(e.message||'Business access failed.');}
@@ -521,7 +521,9 @@ window.createStaffPin=async()=>{
 };
 
 async function enterApp(){
- // Open the workspace immediately after PIN verification, as before.
+ // Open the selected business workspace.
+ document.querySelectorAll('header .brand').forEach(el=>el.textContent=activeBusinessName);
+ document.title=activeBusinessName+' Management';
  $('loginScreen').classList.add('hidden');
  $('mainNav').classList.remove('hidden');
  $('appMain').classList.remove('hidden');
