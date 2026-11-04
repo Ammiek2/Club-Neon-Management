@@ -801,6 +801,19 @@ window.loadDailyStockTakes=async function(silent=false){
   const soldFromSales=ds.filter(x=>x.product_id===p.id).reduce((a,x)=>a+Number(x.quantity||0),0);
   return sum+Math.max(soldFromSales,Number(saved?.sold_qty||0));
  },0);
+ // Sales History uses the same reconciled total as Daily Stock Take: saved sales plus
+ // stock-count quantities not already represented by individual sale transactions.
+ const historyCash=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'').startsWith('cash')).reduce((a,x)=>a+Number(x.total||0),0);
+ const historyMpesa=ds.filter(x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'').includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
+ const historyOther=ds.filter(x=>{const k=String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'');return !k.startsWith('cash')&&!k.includes('mpesa');}).reduce((a,x)=>a+Number(x.total||0),0);
+ $('salesHistoryTotals').innerHTML=[
+  ['Total sales',money(totals.totalSales)],
+  ['Quantity sold',stockTakeSold.toLocaleString('en-KE',{maximumFractionDigits:3})],
+  ['Cash (saved transactions)',money(historyCash)],
+  ['M-Pesa (saved transactions)',money(historyMpesa)],
+  ['Other / unspecified (saved transactions)',money(historyOther)],
+  ['Stock-count sales not in transactions',money(totals.unallocatedSales)]
+ ].map(([label,value])=>'<div class="sales-total"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
  const stockCost=ds.reduce((a,x)=>a+Number(x.cost_total||0),0)+totals.unallocatedCost;
  const dayExpenses=expenses.filter(x=>date(x.created_at)===day).reduce((a,x)=>a+Number(x.amount||0),0);
  $('dailyStockSalesTotal').textContent=money(totals.totalSales);
