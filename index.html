@@ -77,6 +77,27 @@ main{padding:10px}
    <p class="hint">Choose how you want to access the system.</p>
    <button onclick="document.getElementById('loginChoices').classList.add('hidden');document.getElementById('adminLogin').classList.remove('hidden');document.getElementById('adminPin').value='';document.getElementById('loginMessage').textContent='';">ADMIN ACCESS</button>
    <button class="secondary" onclick="document.getElementById('loginChoices').classList.add('hidden');document.getElementById('staffLogin').classList.remove('hidden');document.getElementById('staffPin').value='';document.getElementById('loginMessage').textContent='';">STAFF ACCESS</button>
+   <button class="secondary" onclick="showBusinessAccess()">ACCESS ANOTHER BUSINESS</button>
+   <button class="secondary" onclick="showBusinessCreate()">CREATE A BUSINESS</button>
+  </div>
+
+  <div id="businessAccess" class="hidden">
+   <h2>Business owner access</h2>
+   <p class="hint">Enter your business code and owner PIN. No email or password required.</p>
+   <label class="hint">Business code</label><input id="businessCode" type="text" maxlength="10" placeholder="10-character business code" autocomplete="off">
+   <label class="hint">Owner PIN</label><input id="businessOwnerPin" type="password" inputmode="numeric" maxlength="8" placeholder="6–8 digit PIN">
+   <button onclick="accessBusiness()">Unlock business</button>
+   <button class="secondary" onclick="backLogin()">Back</button>
+  </div>
+
+  <div id="businessCreate" class="hidden">
+   <h2>Create your business</h2>
+   <p class="hint">Create a separate workspace. Keep your business code and owner PIN safe to access it on other devices.</p>
+   <label class="hint">Business name</label><input id="newBusinessName" type="text" maxlength="80" placeholder="Your business name">
+   <label class="hint">Owner name</label><input id="newOwnerName" type="text" maxlength="80" placeholder="Your name">
+   <label class="hint">Create owner PIN (6–8 digits)</label><input id="newOwnerPin" type="password" inputmode="numeric" maxlength="8" placeholder="Choose a strong PIN">
+   <button onclick="createBusiness()">Create business</button>
+   <button class="secondary" onclick="backLogin()">Back</button>
   </div>
 
   <div id="adminLogin" class="hidden">
@@ -350,7 +371,7 @@ function tbl(headers,rows){
 
 function loginError(message){$('loginMessage').textContent=message;}
 function hideLoginPanels(){
- ['loginChoices','adminLogin','staffLogin','staffEnrol'].forEach(x=>$(x).classList.add('hidden'));
+ ['loginChoices','adminLogin','staffLogin','staffEnrol','businessAccess','businessCreate'].forEach(x=>$(x).classList.add('hidden'));
 }
 window.backLogin=()=>{
  hideLoginPanels();$('loginChoices').classList.remove('hidden');loginError('');
@@ -363,6 +384,42 @@ window.showStaffLogin=()=>{
 };
 window.showEnrol=()=>{
  hideLoginPanels();$('staffEnrol').classList.remove('hidden');$('newStaffPin').value='';loginError('');
+};
+
+window.showBusinessAccess=()=>{hideLoginPanels();$('businessAccess').classList.remove('hidden');$('businessCode').value='';$('businessOwnerPin').value='';loginError('');};
+window.showBusinessCreate=()=>{hideLoginPanels();$('businessCreate').classList.remove('hidden');$('newBusinessName').value='';$('newOwnerName').value='';$('newOwnerPin').value='';loginError('');};
+
+window.createBusiness=async()=>{
+ const name=$('newBusinessName').value.trim(),owner=$('newOwnerName').value.trim(),pin=$('newOwnerPin').value.trim();
+ if(name.length<2||owner.length<2)return loginError('Enter the business name and owner name.');
+ if(!/^\\d{6,8}$/.test(pin))return loginError('Owner PIN must contain 6–8 digits.');
+ loginError('Creating your separate business workspace...');
+ try{
+  const {data,error}=await sb.rpc('club_neon_create_business',{p_business_name:name,p_owner_name:owner,p_pin:pin});
+  if(error)throw error;
+  const row=Array.isArray(data)?data[0]:data;
+  if(!row?.business_id||!row?.business_code)throw new Error('Business was created but its access details were not returned. Contact support before retrying.');
+  bid=row.business_id;role='admin';currentStaffId=null;currentStaffName=owner;
+  loginError('Business created. Save your business code: '+row.business_code);
+  alert('BUSINESS CREATED\\n\\nBusiness: '+name+'\\nBusiness code: '+row.business_code+'\\nOwner PIN: the PIN you just created.\\n\\nSave this code safely. You need it with your PIN on another device.');
+  await enterApp();
+ }catch(e){loginError(e.message||'Could not create business.');}
+};
+
+window.accessBusiness=async()=>{
+ const code=$('businessCode').value.trim().toUpperCase(),pin=$('businessOwnerPin').value.trim();
+ if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
+ if(!/^\\d{6,8}$/.test(pin))return loginError('Enter your 6–8 digit owner PIN.');
+ loginError('Checking business code and PIN...');
+ try{
+  const {data,error}=await sb.rpc('club_neon_access_business',{p_business_code:code,p_pin:pin});
+  if(error)throw error;
+  const row=Array.isArray(data)?data[0]:data;
+  if(!row?.business_id)throw new Error('Business access was not confirmed.');
+  bid=row.business_id;role='admin';currentStaffId=null;currentStaffName=row.owner_name||'Owner';
+  loginError('Access granted. Opening '+row.business_name+'...');
+  await enterApp();
+ }catch(e){loginError(e.message||'Business access failed.');}
 };
 
 async function initialise(){
