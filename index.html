@@ -87,6 +87,13 @@ main{padding:10px}
    <label class="hint">Business code</label><input id="businessCode" type="text" maxlength="10" placeholder="10-character business code" autocomplete="off">
    <label class="hint">Owner PIN</label><input id="businessOwnerPin" type="password" inputmode="numeric" maxlength="8" placeholder="6–8 digit PIN">
    <button onclick="accessBusiness()">Unlock business</button>
+   <div class="panel" style="margin-top:14px">
+    <h3>Forgot owner PIN?</h3>
+    <p class="hint">Use the recovery code saved when the business was created.</p>
+    <label class="hint">Recovery code</label><input id="businessRecoveryCode" type="text" maxlength="20" placeholder="20-character recovery code">
+    <label class="hint">New owner PIN (6–8 digits)</label><input id="businessNewRecoveryPin" type="password" inputmode="numeric" maxlength="8" placeholder="Create new PIN">
+    <button class="secondary" onclick="recoverBusinessPin()">Reset owner PIN</button>
+   </div>
    <button class="secondary" onclick="backLogin()">Back</button>
   </div>
 
@@ -401,10 +408,10 @@ window.createBusiness=async()=>{
   const {data,error}=await sb.rpc('club_neon_create_business',{p_business_name:name,p_owner_name:owner,p_pin:pin});
   if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;
-  if(!row?.business_id||!row?.business_code)throw new Error('Business was created but its access details were not returned. Contact support before retrying.');
+  if(!row?.business_id||!row?.business_code||!row?.recovery_code)throw new Error('Business was created but its access details were not returned. Contact support before retrying.');
   bid=row.business_id;activeBusinessName=name;role='admin';currentStaffId=null;currentStaffName=owner;
   loginError('Business created. Save your business code: '+row.business_code);
-  alert('BUSINESS CREATED\\n\\nBusiness: '+name+'\\nBusiness code: '+row.business_code+'\\nOwner PIN: the PIN you just created.\\n\\nSave this code safely. You need it with your PIN on another device.');
+  alert('BUSINESS CREATED\\n\\nBusiness: '+name+'\\nBusiness code: '+row.business_code+'\\nOwner PIN: the PIN you just created.\\nRecovery code: '+row.recovery_code+'\\n\\nSAVE BOTH CODES SAFELY. The recovery code is shown only once and is needed if you forget your owner PIN.');
   await enterApp();
  }catch(e){loginError(e.message||'Could not create business.');}
 };
@@ -423,6 +430,23 @@ window.accessBusiness=async()=>{
   loginError('Access granted. Opening '+row.business_name+'...');
   await enterApp();
  }catch(e){loginError(e.message||'Business access failed.');}
+};
+
+window.recoverBusinessPin=async()=>{
+ const code=$('businessCode').value.trim().toUpperCase();
+ const recovery=$('businessRecoveryCode').value.trim().toUpperCase();
+ const pin=$('businessNewRecoveryPin').value.trim();
+ if(!/^[A-F0-9]{10}$/.test(code))return loginError('Enter your business code first.');
+ if(!/^[A-F0-9]{20}$/.test(recovery))return loginError('Enter the 20-character recovery code.');
+ if(!/^\\d{6,8}$/.test(pin))return loginError('New owner PIN must be 6–8 digits.');
+ loginError('Verifying recovery code...');
+ try{
+  const {data,error}=await sb.rpc('club_neon_recover_owner_pin',{p_business_code:code,p_recovery_code:recovery,p_new_pin:pin});
+  if(error)throw error;
+  if(data!==true)throw new Error('PIN recovery was not confirmed.');
+  $('businessOwnerPin').value=pin;$('businessRecoveryCode').value='';$('businessNewRecoveryPin').value='';
+  loginError('PIN reset. You can now unlock your business with the new PIN.');
+ }catch(e){loginError(e.message||'Could not reset owner PIN.');}
 };
 
 async function initialise(){
