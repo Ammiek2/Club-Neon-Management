@@ -1418,7 +1418,7 @@ window.exportPDF=async()=>{
  $('reportExportStatus').textContent='Preparing your readable printable report...';
  try{
   const r=await collectReportData(),rows=reportRows(r);
-  const widths=[7,11,19,11,7,8,9,8,8,7,15];
+  const widths=[6,10,18,10,6,8,9,8,8,7,10];
   const header=rows[0].map((v,i)=>'<th style="width:'+widths[i]+'%">'+esc(v)+'</th>').join('');
   const body=rows.slice(1).map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('');
   const summary='<div class="summary"><span><b>Sales</b> '+money(r.salesTotal)+'</span><span><b>Cost of goods</b> '+money(r.costTotal)+'</span><span><b>Gross profit</b> '+money(r.gross)+'</span><span><b>Expenses</b> '+money(r.expenseTotal)+'</span><span><b>Net result</b> '+money(r.net)+'</span></div>';
