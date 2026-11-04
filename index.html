@@ -720,15 +720,21 @@ function render(){
  filterStockProducts();
 
  const salesForDay=sales.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date())));
+ // The recorded total always includes every saved sale, regardless of payment method.
  const recordedSales=salesForDay.reduce((a,x)=>a+Number(x.total||0),0);
  const recordedQty=salesForDay.reduce((a,x)=>a+Number(x.quantity||0),0);
- const cashSales=salesForDay.filter(x=>String(x.payment_method||'').toLowerCase()==='cash').reduce((a,x)=>a+Number(x.total||0),0);
- const mpesaSales=salesForDay.filter(x=>String(x.payment_method||'').toLowerCase().includes('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
+ const paymentKey=x=>String(x.payment_method||'').toLowerCase().replace(/[\\s_-]/g,'');
+ const isCash=x=>paymentKey(x).startsWith('cash');
+ const isMpesa=x=>paymentKey(x).includes('mpesa');
+ const cashSales=salesForDay.filter(isCash).reduce((a,x)=>a+Number(x.total||0),0);
+ const mpesaSales=salesForDay.filter(isMpesa).reduce((a,x)=>a+Number(x.total||0),0);
+ const otherPaymentSales=salesForDay.filter(x=>!isCash(x)&&!isMpesa(x)).reduce((a,x)=>a+Number(x.total||0),0);
  const summaryItems=[
   ['Recorded sales',money(recordedSales)],
   ['Quantity sold',recordedQty.toLocaleString('en-KE',{maximumFractionDigits:3})],
   ['Cash',money(cashSales)],
-  ['M-Pesa',money(mpesaSales)]
+  ['M-Pesa',money(mpesaSales)],
+  ['Other / unspecified',money(otherPaymentSales)]
  ];
  $('salesHistoryTotals').innerHTML=summaryItems.map(([label,value])=>'<div class="sales-total"><div class="label">'+label+'</div><div class="value">'+value+'</div></div>').join('');
 
