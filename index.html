@@ -1363,22 +1363,30 @@ async function collectReportData(){
  const results=await Promise.all(jobs);
  const bad=results.find(x=>x.error);if(bad)throw new Error(bad.error.message);
  const [saleRes,expenseRes,moveRes,takeRes,productRes]=results;
- const productMap=new Map((productRes.data||[]).map(p=>[p.id,p]));
+ const productMap=new Map();
+ (productRes.data||[]).forEach(p=>productMap.set(String(p.id),p));
+ // Use the already-loaded business product list as a fallback if row-level visibility
+ // or an older cached query leaves the report lookup incomplete.
+ (Array.isArray(products)?products:[]).forEach(p=>{if(p&&p.id&&!productMap.has(String(p.id)))productMap.set(String(p.id),p);});
+ const productName=id=>{
+  const p=productMap.get(String(id||''));
+  return p?.name||p?.product_name||'Product name unavailable';
+ };
  const saleRows=saleRes.data||[],expenseRows=expenseRes.data||[],moveRows=moveRes.data||[],takeRows=takeRes.data||[];
  const inferred=[];
  if(needTakes&&needSales){
   takeRows.forEach(t=>{
    const recorded=saleRows.filter(s=>s.product_id===t.product_id&&date(s.created_at)===t.collection_date).reduce((n,s)=>n+Number(s.quantity||0),0);
    const missing=Math.max(0,Number(t.sold_qty||0)-recorded);
-   const p=productMap.get(t.product_id);
+   const p=productMap.get(String(t.product_id));
    if(missing>0&&p)inferred.push({created_at:t.collection_date+'T12:00:00+03:00',product_name:p.name,quantity:missing,unit_price:Number(p.selling_price||0),total:missing*Number(p.selling_price||0),cost_total:missing*Number(p.buying_cost||0),payment_method:'Unallocated (stock count)',staff_name:'',note:'Inferred from daily stock take'});
   });
  }
  const salesTotal=saleRows.reduce((n,x)=>n+Number(x.total||0),0)+inferred.reduce((n,x)=>n+Number(x.total||0),0);
  const costTotal=saleRows.reduce((n,x)=>n+Number(x.cost_total||0),0)+inferred.reduce((n,x)=>n+Number(x.cost_total||0),0);
  const expenseTotal=expenseRows.reduce((n,x)=>n+Number(x.amount||0),0);
- const namedMoveRows=moveRows.map(x=>({...x,product_name:productMap.get(x.product_id)?.name||'Unknown product'}));
- const namedTakeRows=takeRows.map(x=>({...x,product_name:productMap.get(x.product_id)?.name||'Unknown product'}));
+ const namedMoveRows=moveRows.map(x=>({...x,product_name:productName(x.product_id)}));
+ const namedTakeRows=takeRows.map(x=>({...x,product_name:productName(x.product_id)}));
  return {from,to,type,saleRows,expenseRows,moveRows:namedMoveRows,takeRows:namedTakeRows,inferred,salesTotal,costTotal,expenseTotal,gross:salesTotal-costTotal,net:salesTotal-costTotal-expenseTotal};
 }
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
@@ -1407,15 +1415,17 @@ window.exportCSV=async()=>{
 window.exportPDF=async()=>{
  const printWindow=window.open('','_blank');
  if(!printWindow)return alert('Allow pop-ups for this app, then tap Print / Save PDF again.');
- $('reportExportStatus').textContent='Preparing your printable report...';
+ $('reportExportStatus').textContent='Preparing your readable printable report...';
  try{
   const r=await collectReportData(),rows=reportRows(r);
+  const widths=[7,11,19,11,7,8,9,8,8,7,15];
+  const header=rows[0].map((v,i)=>'<th style="width:'+widths[i]+'%">'+esc(v)+'</th>').join('');
   const body=rows.slice(1).map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('');
-  const summary='<div class="summary"><b>Sales:</b> '+money(r.salesTotal)+' &nbsp; <b>Cost:</b> '+money(r.costTotal)+' &nbsp; <b>Gross profit:</b> '+money(r.gross)+' &nbsp; <b>Expenses:</b> '+money(r.expenseTotal)+' &nbsp; <b>Net result:</b> '+money(r.net)+'</div>';
+  const summary='<div class="summary"><span><b>Sales</b> '+money(r.salesTotal)+'</span><span><b>Cost of goods</b> '+money(r.costTotal)+'</span><span><b>Gross profit</b> '+money(r.gross)+'</span><span><b>Expenses</b> '+money(r.expenseTotal)+'</span><span><b>Net result</b> '+money(r.net)+'</span></div>';
   printWindow.document.open();
-  printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(activeBusinessName)+' report</title><style>body{font:12px Arial,sans-serif;color:#111;margin:24px}h1{margin-bottom:4px}p{margin:4px 0}.summary{margin:18px 0;padding:12px;border:1px solid #999;line-height:1.8}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #bbb;padding:6px;text-align:left;overflow-wrap:anywhere}th{background:#eee}@media print{button{display:none}body{margin:12mm}}</style></head><body><h1>'+esc(activeBusinessName)+'</h1><p><b>Business report</b></p><p>Reporting period: '+esc(r.from)+' to '+esc(r.to)+'</p><p>Generated: '+esc(new Date().toLocaleString('en-KE',{timeZone:'Africa/Nairobi'}))+'</p>'+summary+'<table><thead><tr>'+rows[0].map(v=>'<th>'+esc(v)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table><p style="margin-top:18px">End of report</p><script>window.onload=()=>window.print();<\/script></body></html>');
+  printWindow.document.write('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(activeBusinessName)+' report</title><style>@page{size:A4 landscape;margin:9mm}*{box-sizing:border-box}body{font:9px Arial,sans-serif;color:#111;margin:0}h1{font-size:19px;margin:0 0 3px}p{margin:3px 0}.summary{display:flex;flex-wrap:wrap;gap:7px 18px;margin:10px 0;padding:8px;border:1px solid #999;font-size:9px}.summary span{white-space:nowrap}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.5px}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #aaa;padding:4px 3px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word;line-height:1.25}th{background:#eaeaea;font-weight:bold}td:nth-child(2){white-space:nowrap}tfoot{display:table-footer-group}.end{margin-top:8px;font-size:8px}@media screen{body{padding:16px}table{font-size:9px}}@media print{body{margin:0}}</style></head><body><h1>'+esc(activeBusinessName)+'</h1><p><b>Business report</b></p><p>Reporting period: '+esc(r.from)+' to '+esc(r.to)+' &nbsp; | &nbsp; Generated: '+esc(new Date().toLocaleString('en-KE',{timeZone:'Africa/Nairobi'}))+'</p>'+summary+'<table><colgroup>'+widths.map(w=>'<col style="width:'+w+'%">').join('')+'</colgroup><thead><tr>'+header+'</tr></thead><tbody>'+body+'</tbody></table><p class="end">End of report</p><script>window.onload=()=>window.print();<\/script></body></html>');
   printWindow.document.close();
-  $('reportExportStatus').textContent='Printable report opened. Choose “Save as PDF” in the print options.';
+  $('reportExportStatus').textContent='Readable landscape report opened. Choose “Save as PDF” in the print options.';
  }catch(e){printWindow.close();$('reportExportStatus').textContent='PDF report failed: '+e.message;alert('Could not prepare PDF report: '+e.message);}
 };
 
