@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{--bg:#0c1118;--p:#151e29;--p2:#1d2937;--line:#2b3949;--txt:#edf3f8;--muted:#9aabba;--gold:#f4bd42;--green:#36c98b;--red:#ff6b6b}
+.issue-flagged td{background:rgba(244,189,66,.15);border-bottom-color:#806324}.issue-resolved td{background:rgba(54,201,139,.08)}.issue-label{font-weight:800;color:#ffd36a}.resolved-label{font-weight:800;color:#36c98b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font:15px system-ui}
 header{padding:14px 18px;background:#101923;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
@@ -321,7 +322,7 @@ const sb=createClient(
 );
 
 let bid=null,products=[],sales=[],expenses=[],staff=[],moves=[];
-let dailyBalance=null, dailyStockTakes=[];
+let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[];
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[];
@@ -792,6 +793,9 @@ window.loadDailyStockTakes=async function(silent=false){
  const {data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});
  if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}
  dailyStockTakes=data||[];
+ const {data:flagData,error:flagError}=await sb.from('daily_stock_take_flags').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});
+ if(flagError){$('stockTakeStatus').textContent='Could not load saved explanation markers: '+flagError.message;$('dailyStockTakeTable').innerHTML='';return;}
+ dailyStockTakeFlags=flagData||[];
  const ds=sales.filter(x=>date(x.created_at)===day);
  const dm=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in');
  const totals=stockSalesForDate(day,dailyStockTakes);
@@ -829,6 +833,8 @@ window.loadDailyStockTakes=async function(silent=false){
  }
  const rows=products.map(p=>{
   const x=dailyStockTakes.find(z=>z.product_id===p.id);
+  const flag=dailyStockTakeFlags.find(z=>z.product_id===p.id);
+  const flagged=flag?.status==='open';
   const figures=window.dailyStockFigures(p.id,day);
   const actual=ds.filter(z=>z.product_id===p.id);
   const actualQty=actual.reduce((a,z)=>a+Number(z.quantity||0),0);
@@ -842,21 +848,74 @@ window.loadDailyStockTakes=async function(silent=false){
   const value=actualValue+missing*Number(p.selling_price||0);
   const current=Number(p.stock||0);
   const physical=x?Number(x.closing_qty||0):null;
-   const action=x
-    ?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button>`
-    :`<button class="secondary small" onclick="selectDailyStockTakeProduct('${p.id}')">Record</button>`;
-  return '<tr><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+esc(x?.note||(x?'':'Not yet recorded'))+'</td><td>'+action+'</td></tr>';
+  const recordAction=flagged
+   ?'<button class="secondary small" disabled title="Resolve the explanation marker before recording">Resolve issue first</button>'
+   :x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button>`
+   :`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
+  const flagAction=flagged
+   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button>`
+   :flag
+    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button>`
+    :`<button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Flag for explanation</button>`;
+  const noteText=flagged?'NEEDS EXPLANATION: '+flag.reason:flag?.status==='resolved'?'RESOLVED: '+(flag.resolution_note||flag.reason):x?.note||(x?'':'Not yet recorded');
+  return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
   ...ds.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button></td></tr>'),
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
- $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
+ $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
 };
 
-window.saveDailyStockTake=async function(){if(!role)return;const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value,opening=Number($('stOpening').value),sold=Number($('stSold').value),wastage=Number($('stWastage').value),closing=Number($('stClosing').value);if(!day||!pid||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid quantities to 3 decimal places.');const{data,error}=await sb.rpc('club_neon_correct_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_sold_override:sold,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});if(error)return alert('Could not save daily stock take correction: '+error.message);const out=Array.isArray(data)?data[0]:data;notify(out?.live_stock_adjusted?'Daily stock take corrected. Live stock reconciled to the corrected physical closing.':'Daily stock take corrected. Live stock unchanged because later transactions or a later stock take exist.');await refreshAll();};
+window.recordDailyStockTakeProduct=async function(pid){
+ const flag=dailyStockTakeFlags.find(x=>x.product_id===pid&&x.status==='open');
+ if(flag)return alert('Resolve the saved explanation marker before recording this product.');
+ $('stockTakeProduct').value=pid;populateDailyStockTakeInputs();
+ $('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});
+ const p=products.find(x=>x.id===pid);
+ const raw=prompt('Enter the ACTUAL physical closing quantity counted for '+(p?.name||'this product')+'. Do not use an estimate.\nSuggested figure (check it against the physical count):',String($('stClosing').value||'0'));
+ if(raw===null)return;
+ const closing=Number(raw);
+ if(!Number.isFinite(closing)||closing<0||Math.round(closing*1000)!==closing*1000)return alert('Enter a valid physical closing quantity (up to 3 decimal places).');
+ $('stClosing').value=closing.toFixed(3);
+ await window.saveDailyStockTake();
+};
+window.flagDailyStockTakeIssue=async function(pid){
+ const day=$('stockTakeDate').value||date(new Date());
+ const p=products.find(x=>x.id===pid);if(!p)return;
+ const old=dailyStockTakeFlags.find(x=>x.product_id===pid);
+ const reason=prompt('Why does '+p.name+' need an explanation? This marker will stay saved until you resolve it.',old?.reason||'Stock figure needs checking');
+ if(reason===null)return;if(!reason.trim())return alert('Enter a short explanation before saving the marker.');
+ const {error}=await sb.from('daily_stock_take_flags').upsert({business_id:bid,collection_date:day,product_id:pid,reason:reason.trim(),status:'open',resolution_note:null,resolved_at:null,resolved_by:null,updated_at:new Date().toISOString()},{onConflict:'business_id,collection_date,product_id'});
+ if(error)return alert('Could not save explanation marker: '+error.message);
+ notify('Explanation marker saved. The product is highlighted until the issue is resolved.');
+ await loadDailyStockTakes(true);
+};
+window.resolveDailyStockTakeIssue=async function(id){
+ const flag=dailyStockTakeFlags.find(x=>x.id===id);if(!flag)return;
+ const resolution=prompt('How was this issue resolved? (Optional note):', 'Checked and ready to record');
+ if(resolution===null)return;
+ const {error}=await sb.from('daily_stock_take_flags').update({status:'resolved',resolution_note:resolution.trim()||null,resolved_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id).eq('business_id',bid);
+ if(error)return alert('Could not resolve explanation marker: '+error.message);
+ notify('Issue marked resolved. You can now record or edit this product.');
+ await loadDailyStockTakes(true);
+};
+window.saveDailyStockTake=async function(){
+ if(!role)return;
+ const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value;
+ const flag=dailyStockTakeFlags.find(x=>x.product_id===pid&&x.collection_date===day&&x.status==='open');
+ if(flag)return alert('Resolve the explanation marker for this product before recording it.');
+ const opening=Number($('stOpening').value),sold=Number($('stSold').value),wastage=Number($('stWastage').value),closing=Number($('stClosing').value);
+ if(!day||!pid||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid quantities to 3 decimal places.');
+ const wasSaved=dailyStockTakes.some(x=>x.product_id===pid&&x.collection_date===day);
+ const {data,error}=await sb.rpc('club_neon_correct_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_sold_override:sold,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});
+ if(error)return alert('Could not save daily stock take: '+error.message);
+ const out=Array.isArray(data)?data[0]:data;
+ notify((wasSaved?'Daily stock take corrected. ':'Daily stock take recorded. ')+(out?.live_stock_adjusted?'Live stock reconciled to the corrected physical closing.':'Live stock unchanged because later transactions or a later stock take exist.'));
+ await refreshAll();
+};
 window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=Number(x.closing_qty||0).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
 window.selectDailyStockTakeProduct=function(pid){
  $('stockTakeProduct').value=pid;
