@@ -205,7 +205,7 @@ main{padding:10px}
   <h1>Stock & products</h1>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Daily stock take</h2>
-   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and physical closing count for the selected date. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
+   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to highlight and save an issue; flagged products cannot be recorded until you resolve the marker. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
    <div class="grid">
     <div class="field"><label>Collection date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
