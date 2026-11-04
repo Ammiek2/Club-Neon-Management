@@ -758,10 +758,10 @@ function render(){
 
  if(role==='admin'){
   $('stockHistoryPanel').style.display='';
-  $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost'],
+  $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost','Actions'],
   moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
-  <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td></tr>`));
+  <td>${esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
  }else{
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
@@ -1010,6 +1010,34 @@ window.restock=async id=>{
  });
  if(error)alert(error.message);
  else{notify('Stock added.');await refreshAll();}
+};
+
+window.editStockInMovement=async function(id){
+ if(role!=='admin')return alert('Only an administrator can correct stock-in entries.');
+ const x=moves.find(m=>m.id===id&&String(m.movement_type).toLowerCase()==='stock_in');
+ if(!x)return alert('Stock-in entry not found. Refresh and try again.');
+ const p=products.find(z=>z.id===x.product_id);if(!p)return alert('Product not found.');
+ const oldQty=Number(x.quantity||0),oldCost=Number(x.unit_cost||0);
+ const raw=prompt('Correct quantity received for '+p.name+' on '+date(x.created_at)+':',String(oldQty));
+ if(raw===null)return;
+ const qty=Number(raw);
+ if(!Number.isFinite(qty)||qty<=0||Math.round(qty*1000)!==qty*1000)return alert('Enter a quantity greater than zero, up to 3 decimal places.');
+ const costRaw=prompt('Correct unit buying cost:',String(oldCost));if(costRaw===null)return;
+ const cost=Number(costRaw);if(!Number.isFinite(cost)||cost<0)return alert('Enter a valid buying cost.');
+ const reason=prompt('Reason for correction (required):','Corrected stock-in entry');if(reason===null)return;
+ if(!reason.trim())return alert('A correction reason is required.');
+ if(!confirm('Correct '+p.name+' stock-in from '+oldQty+' to '+qty+'? Current stock will change by '+(qty-oldQty)+'.'))return;
+ const diff=qty-oldQty;
+ const {error:moveError}=await sb.from('stock_movements').update({
+  quantity:qty,unit_cost:cost,note:(x.note||'Stock-in')+' | EDITED: '+reason.trim()
+ }).eq('id',id).eq('business_id',bid).eq('movement_type','stock_in');
+ if(moveError)return alert('Stock-in entry was not changed: '+moveError.message);
+ if(diff!==0){
+  const {error:stockError}=await sb.from('products').update({stock:Math.max(0,Number(p.stock||0)+diff)}).eq('id',p.id).eq('business_id',bid);
+  if(stockError){alert('Movement corrected, but live stock could not be adjusted. Contact support before further stock changes: '+stockError.message);await refreshAll();return;}
+ }
+ notify('Stock-in entry corrected. Stock and daily totals refreshed.');
+ await refreshAll();
 };
 
 window.addExpense=async()=>{
