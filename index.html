@@ -83,14 +83,15 @@ main{padding:10px}
 
   <div id="businessAccess" class="hidden">
    <h2>Business owner access</h2>
-   <p class="hint">Enter your business code and owner PIN. No email or password required.</p>
-   <label class="hint">Business code</label><input id="businessCode" type="text" maxlength="10" placeholder="10-character business code" autocomplete="off">
+   <p class="hint">Enter your business name and owner PIN. No business code needed.</p>
+   <label class="hint">Business name</label><input id="businessNameAccess" type="text" maxlength="80" placeholder="e.g. Royal family" autocomplete="off">
    <label class="hint">Owner PIN</label><input id="businessOwnerPin" type="password" inputmode="numeric" maxlength="8" placeholder="6–8 digit PIN">
    <button type="button" onclick="accessBusiness()">Unlock business</button>
    <button type="button" class="secondary" onclick="document.getElementById('businessRecoveryPanel').classList.toggle('hidden')">Forgot owner PIN?</button>
    <div id="businessRecoveryPanel" class="panel hidden" style="margin-top:14px">
     <h3>Reset forgotten owner PIN</h3>
-    <p class="hint">Use the recovery code saved when the business was created.</p>
+    <p class="hint">Only use this if you have forgotten your PIN.</p>
+    <label class="hint">Business code</label><input id="businessCode" type="text" maxlength="10" placeholder="Business code for recovery" autocomplete="off">
     <label class="hint">Recovery code</label><input id="businessRecoveryCode" type="text" maxlength="20" placeholder="20-character recovery code">
     <label class="hint">New owner PIN (6–8 digits)</label><input id="businessNewRecoveryPin" type="password" inputmode="numeric" maxlength="8" placeholder="Create new PIN">
     <button type="button" class="secondary" onclick="recoverBusinessPin()">Reset owner PIN</button>
@@ -397,7 +398,7 @@ window.showEnrol=()=>{
  hideLoginPanels();$('staffEnrol').classList.remove('hidden');$('newStaffPin').value='';loginError('');
 };
 
-window.showBusinessAccess=()=>{hideLoginPanels();$('businessAccess').classList.remove('hidden');$('businessCode').value='';$('businessOwnerPin').value='';loginError('');};
+window.showBusinessAccess=()=>{hideLoginPanels();$('businessAccess').classList.remove('hidden');$('businessNameAccess').value='';$('businessOwnerPin').value='';$('businessCode').value='';$('businessRecoveryPanel').classList.add('hidden');loginError('');};
 window.showBusinessCreate=()=>{hideLoginPanels();$('businessCreate').classList.remove('hidden');$('newBusinessName').value='';$('newOwnerName').value='';$('newOwnerPin').value='';loginError('');};
 
 window.createBusiness=async()=>{
@@ -418,12 +419,12 @@ window.createBusiness=async()=>{
 };
 
 window.accessBusiness=async()=>{
- const code=$('businessCode').value.trim().toUpperCase(),pin=$('businessOwnerPin').value.replace(/[^0-9]/g,'');
- if(!/^[A-Z0-9]{10}$/.test(code))return loginError('Enter the 10-character business code.');
+ const name=$('businessNameAccess').value.trim(),pin=$('businessOwnerPin').value.replace(/[^0-9]/g,'');
+ if(name.length<2)return loginError('Enter your business name.');
  if(!/^[0-9]{6,8}$/.test(pin))return loginError('Enter your 6–8 digit owner PIN.');
- loginError('Checking business code and PIN...');
+ loginError('Checking business name and PIN...');
  try{
-  const {data,error}=await sb.rpc('club_neon_access_business',{p_business_code:code,p_pin:pin});
+  const {data,error}=await sb.rpc('club_neon_access_business_by_name',{p_business_name:name,p_pin:pin});
   if(error)throw error;
   const row=Array.isArray(data)?data[0]:data;
   if(!row?.business_id)throw new Error('Business access was not confirmed.');
