@@ -773,6 +773,13 @@ window.cancelLegacyStockExpenseEdit=function(){
  $('cancelLegacyStockExpenseButton').classList.add('hidden');
  $('legacyStockFormMessage').textContent='Enter a description for every stock purchase. These historical entries do not change product quantities or get deducted twice.';
 };
+window.deleteLegacyStockExpense=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=expenses.find(e=>e.id===id&&String(e.category||'').toLowerCase()==='stock');if(!x)return;
+ if(!confirm('Permanently delete previous stock purchase "'+(x.description||'Stock purchase')+'" for '+money(x.amount)+'?'))return;
+ const {error}=await sb.from('expenses').delete().eq('id',id).eq('business_id',bid).eq('category','Stock');
+ if(error)alert('Could not delete stock purchase: '+error.message);else{notify('Previous stock purchase deleted.');await refreshAll();}
+};
 window.saveLegacyStockExpense=async function(){
  if(role!=='admin')return alert('Admin access only.');
  const day=$('legacyStockDate').value;
@@ -1294,6 +1301,7 @@ window.editSale=async id=>{
 };
 
 window.deleteSale=async id=>{
+ if(role!=='admin')return alert('Admin access only.');
  const x=sales.find(s=>s.id===id);if(!x)return;
  if(!confirm(`Delete sale of ${x.quantity} × ${x.product_name} for ${money(x.total)}? Sold quantity will return to stock.`))return;
  const {error}=await sb.rpc('club_neon_delete_sale',{p_business:bid,p_sale_id:id});
@@ -1378,6 +1386,14 @@ window.adjustStock=async id=>{
  notify('Stock corrected.');await refreshAll();
 };
 
+window.deleteProduct=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const p=products.find(x=>x.id===id);if(!p)return;
+ if(sales.some(x=>x.product_id===id)||moves.some(x=>x.product_id===id)||dailyStockTakes.some(x=>x.product_id===id))return alert('This product has saved history. Use Archive instead so reports and old records remain correct.');
+ if(!confirm('Permanently delete product "'+p.name+'"?'))return;
+ const {error}=await sb.from('products').delete().eq('id',id).eq('business_id',bid);
+ if(error)alert('Could not delete product: '+error.message+' Use Archive if it has linked records.');else{notify('Product deleted.');await refreshAll();}
+};
 window.toggleProduct=async id=>{
  const p=products.find(x=>x.id===id);if(!p)return;
  const restoring=p.active===false;
@@ -1400,6 +1416,18 @@ window.restock=async id=>{
  else{notify('Stock added.');await refreshAll();}
 };
 
+window.deleteStockInMovement=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=moves.find(m=>m.id===id&&String(m.movement_type).toLowerCase()==='stock_in');if(!x)return;
+ const p=products.find(z=>z.id===x.product_id);if(!p)return alert('Product not found.');
+ const qty=Number(x.quantity||0),current=Number(p.stock||0);
+ if(current+0.000001<qty)return alert('Cannot delete: current stock is lower than the received quantity.');
+ if(!confirm('Delete stock-in of '+qty+' '+p.name+'? Live stock will be reduced by this quantity.'))return;
+ const {error:se}=await sb.from('products').update({stock:current-qty}).eq('id',p.id).eq('business_id',bid);if(se)return alert(se.message);
+ const {error}=await sb.from('stock_movements').delete().eq('id',id).eq('business_id',bid).eq('movement_type','stock_in');
+ if(error){const rb=await sb.from('products').update({stock:current}).eq('id',p.id).eq('business_id',bid);return alert('Delete failed: '+error.message+(rb.error?' Stock rollback failed; contact support.':''));}
+ notify('Stock-in deleted and live stock adjusted.');await refreshAll();
+};
 window.editStockInMovement=async function(id){
  if(role!=='admin')return alert('Only an administrator can correct stock-in entries.');
  const x=moves.find(m=>m.id===id&&String(m.movement_type).toLowerCase()==='stock_in');
@@ -1456,6 +1484,7 @@ window.editExpense=async id=>{
 };
 
 window.deleteExpense=async id=>{
+ if(role!=='admin')return alert('Admin access only.');
  const x=expenses.find(e=>e.id===id);if(!x)return;
  if(!confirm(`Delete expense "${x.description}" for ${money(x.amount)}?`))return;
  const {error}=await sb.from('expenses').delete().eq('id',id).eq('business_id',bid);
@@ -1463,6 +1492,21 @@ window.deleteExpense=async id=>{
  else{notify('Expense DELETED.');await refreshAll();}
 };
 
+window.deleteDailyStockTake=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=dailyStockTakes.find(t=>t.id===id);if(!x)return;
+ const p=products.find(z=>z.id===x.product_id);
+ if(!confirm('Delete the saved stock-take record for '+(p?.name||'this product')+' on '+x.collection_date+'? This does not change live stock.'))return;
+ const {error}=await sb.from('daily_stock_takes').delete().eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);else{notify('Stock-take record deleted.');await loadDailyStockTakes();}
+};
+window.deleteDailyStockTakeFlag=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=dailyStockTakeFlags.find(f=>f.id===id);if(!x)return;
+ if(!confirm('Delete this explanation marker?'))return;
+ const {error}=await sb.from('daily_stock_take_flags').delete().eq('id',id).eq('business_id',bid);
+ if(error)alert(error.message);else{notify('Explanation marker deleted.');await loadDailyStockTakes();}
+};
 window.addStaff=async()=>{
  const name=$('staffName').value.trim();
  if(!name)return alert('Enter staff name.');
@@ -1473,6 +1517,14 @@ window.addStaff=async()=>{
  else{$('staffName').value='';notify('Staff member added.');await refreshAll();await loadStaffDirectory();}
 };
 
+window.deleteStaff=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=staff.find(s=>s.id===id);if(!x)return;
+ if(sales.some(s=>s.staff_id===id))return alert('This staff member has saved sales. Deactivate the account instead to preserve history.');
+ if(!confirm('Permanently delete staff member "'+x.name+'"?'))return;
+ const {error}=await sb.from('staff').delete().eq('id',id).eq('business_id',bid);
+ if(error)alert('Could not delete staff member: '+error.message+' Deactivate it if linked to a PIN or other records.');else{notify('Staff member deleted.');await refreshAll();await loadStaffDirectory();}
+};
 window.editStaff=async id=>{
  const x=staff.find(s=>s.id===id);if(!x)return;
  const name=prompt('Staff name:',x.name);if(name===null)return;
