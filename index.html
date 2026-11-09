@@ -716,12 +716,9 @@ window.updateManualBalanceSummary=function(){
  const totalSales=stockSalesForDate(day).totalSales;
  const raw=$('manualExpenses').value;
  const totalExpenses=raw===''?0:Number(raw);
- const rawStock=$('manualStockTotal').value;
- const totalStock=rawStock===''?0:Number(rawStock);
  $('manualSalesTotal').textContent=money(totalSales);
- $('manualStockTotalDisplay').textContent=money(totalStock);
  $('manualExpensesTotal').textContent=money(totalExpenses);
- $('manualBalanceAfter').textContent=money(totalSales-totalStock-totalExpenses);
+ $('manualBalanceAfter').textContent=money(totalSales-totalExpenses);
 };
 
 window.renderLegacyStockExpenses=function(){
@@ -756,7 +753,7 @@ window.renderDailyStockPurchases=function(){
  $('missingStockCostCount').textContent=String(missing);
  $('dailyStockPurchaseNote').textContent=missing
   ?'Listed cost so far: '+money(total)+'. '+missing+' stock-in entr'+(missing===1?'y has':'ies have')+' no buying cost recorded. Edit those entries to make the itemised total complete. Compare the completed total with the manual stock total above.'
-  :'Listed purchase total: '+money(total)+'. Check that this matches the manual stock total above.';
+  :'Itemised stock-in purchase total: '+money(total)+'. This is a reference total only and is not deducted again from daily sales.';
 };
 
 window.loadManualBalance=async function(silent=false){
@@ -771,7 +768,6 @@ window.loadManualBalance=async function(silent=false){
  dailyBalance=data||null;
  $('manualCash').value=data?.cash_amount??'';
  $('manualMpesa').value=data?.mpesa_amount??'';
- $('manualStockTotal').value=data?.stock_total??'';
  $('manualExpenses').value=data?.total_expenses??'';
  $('balanceNote').value=data?.note??'';
  updateManualBalanceSummary();
@@ -785,13 +781,10 @@ window.saveManualBalance=async function(){
  if(!day||$('manualCash').value===''||$('manualMpesa').value===''||
     !Number.isFinite(cash)||cash<0||!Number.isFinite(mpesa)||mpesa<0)
   return alert('Enter a date and valid cash and M-Pesa balances (zero is allowed).');
- const stockInput=$('manualStockTotal').value;
- const totalStock=stockInput===''?0:Number(stockInput);
  const expensesInput=$('manualExpenses').value;
  const totalExpenses=expensesInput===''?0:Number(expensesInput);
- if(!Number.isFinite(totalStock)||totalStock<0)return alert('Enter a valid stock total (zero is allowed).');
  if(!Number.isFinite(totalExpenses)||totalExpenses<0)return alert('Enter a valid other expenses amount (zero is allowed).');
- const payload={business_id:bid,balance_date:day,cash_amount:cash,mpesa_amount:mpesa,stock_total:totalStock,total_expenses:totalExpenses,note:$('balanceNote').value.trim()};
+ const payload={business_id:bid,balance_date:day,cash_amount:cash,mpesa_amount:mpesa,total_expenses:totalExpenses,note:$('balanceNote').value.trim()};
  const {error}=await sb.from('daily_payment_balances').upsert(payload,{onConflict:'business_id,balance_date'});
  if(error)return alert('Could not save daily balances: '+error.message);
  dailyBalance=payload;
@@ -827,7 +820,6 @@ function render(){
  const mpesaToday=ss.filter(x=>normalizeSalesPayment(x).startsWith('mpesa')).reduce((a,x)=>a+Number(x.total||0),0);
  const c=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
  const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
- const manualStock=Number($('manualStockTotal')?.value||dailyBalance?.stock_total||0);
 
  if(role==='admin'){
   $('today').textContent='Selected collection date: '+new Date(day+'T12:00:00').toLocaleDateString('en-KE',{dateStyle:'full'});
@@ -1384,7 +1376,7 @@ window.renderReports=async()=>{
   sb.from('daily_payment_balances').select('balance_date,stock_total').eq('business_id',bid).gte('balance_date',f).lte('balance_date',t)
  ]);
  if(error||balanceError){$('productReport').innerHTML='Could not load report totals: '+esc((error||balanceError).message);return;}
- const stockTotal=(balanceRows||[]).reduce((n,x)=>n+Number(x.stock_total||0),0);
+ const stockTotal=moves.filter(x=>date(x.created_at)>=f&&date(x.created_at)<=t&&String(x.movement_type||'').toLowerCase()==='stock_in').reduce((n,x)=>n+Number(x.quantity||0)*Number(x.unit_cost||0),0);
  let sTotal=ss.reduce((a,x)=>a+Number(x.total||0),0);
  let cTotal=ss.reduce((a,x)=>a+Number(x.cost_total||0),0);
  const g={};
@@ -1420,7 +1412,7 @@ async function collectReportData(){
  const startAt=from+'T00:00:00+03:00',endAt=nextDay(to)+'T00:00:00+03:00';
  const needSales=['all','sales','profit'].includes(type);
  const needExpenses=['all','expenses','profit'].includes(type);
- const needMoves=['all','stock'].includes(type);
+ const needMoves=['all','stock','profit'].includes(type);
  const needTakes=['all','takes','profit'].includes(type);
  const needBalances=['all','profit'].includes(type);
  const jobs=[
@@ -1444,7 +1436,7 @@ async function collectReportData(){
   return p?.name||p?.product_name||'Product name unavailable';
  };
  const saleRows=saleRes.data||[],expenseRows=(expenseRes.data||[]).filter(x=>String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')),moveRows=moveRes.data||[],takeRows=takeRes.data||[],balanceRows=balanceRes.data||[];
- const stockTotal=balanceRows.reduce((n,x)=>n+Number(x.stock_total||0),0);
+ const stockTotal=moveRows.filter(x=>String(x.movement_type||'').toLowerCase()==='stock_in').reduce((n,x)=>n+Number(x.quantity||0)*Number(x.unit_cost||0),0);
  const inferred=[];
  if(needTakes&&needSales){
   takeRows.forEach(t=>{
