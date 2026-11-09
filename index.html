@@ -155,6 +155,7 @@ main{padding:10px}
  </div>
  <div class="top-actions">
   <span id="status" class="good">Locked</span>
+  <button class="secondary small" id="manualRefreshButton" onclick="refreshAll()">Refresh</button>
   <button class="secondary small" onclick="logout()">Lock</button>
  </div>
 </header>
@@ -399,7 +400,7 @@ let staffDirectory=[],pendingStaffBusinessName='Club Neon';
 let refreshBusy=false;
 let refreshPending=false;
 let realtimeChannel=null;
-let realtimeTimer=null;
+let cloudChangesPending=false;
 
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -651,6 +652,7 @@ window.refreshAll=async(silent=false)=>{
  if(refreshBusy){refreshPending=true;return;}
  refreshBusy=true;
  if(!silent)$('status').textContent='Refreshing...';
+ cloudChangesPending=false;
  const stockSync=await sb.rpc('club_neon_reconcile_stock_from_daily_takes',{p_business:bid});
  if(stockSync.error){$('message').textContent='Stock reconciliation notice: '+stockSync.error.message;}
 
@@ -685,12 +687,12 @@ window.refreshAll=async(silent=false)=>{
  render();
  await loadDailyStockTakes(true);
  if(role==='admin'&&$('reports')&&!$('reports').classList.contains('hidden'))renderReports();
- $('status').textContent=realtimeChannel?'Live sync active':(role==='admin'?'Admin unlocked':'Staff unlocked');
+ $('status').textContent=realtimeChannel?(cloudChangesPending?'Cloud changes waiting':'Live sync active'):(role==='admin'?'Admin unlocked':'Staff unlocked');
  refreshBusy=false;
  if(refreshPending){refreshPending=false;queueMicrotask(()=>window.refreshAll(true));}
 };
 
-// Live cloud subscriptions replace the old five-second polling loop.
+// Live cloud subscriptions detect changes without automatically reloading records.
 function startLiveSync(){
  stopLiveSync();
  if(!bid||!role)return;
@@ -702,26 +704,22 @@ function startLiveSync(){
   channel=channel.on('postgres_changes',{
    event:'*',schema:'public',table,filter:'business_id=eq.'+bid
   },()=>{
-   if(realtimeTimer)clearTimeout(realtimeTimer);
-   realtimeTimer=setTimeout(async()=>{
-    if(!role)return;
-    await window.refreshAll(true);
-    if(role==='admin'&&tables.includes('staff')){
-     try{await loadStaffDirectory();}catch(e){}
-    }
-   },300);
+   if(!role)return;
+   cloudChangesPending=true;
+   $('status').textContent='Cloud changes waiting';
+   $('message').textContent='New cloud records are available. Press Refresh when you are ready to load them.';
   });
  }
  realtimeChannel=channel;
  channel.subscribe((state)=>{
-  if(state==='SUBSCRIBED')$('status').textContent='Live sync active';
+  if(state==='SUBSCRIBED')$('status').textContent=cloudChangesPending?'Cloud changes waiting':'Live sync active';
   else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'||state==='CLOSED')$('status').textContent='Live sync reconnecting...';
  });
 }
 
 function stopLiveSync(){
- if(realtimeTimer){clearTimeout(realtimeTimer);realtimeTimer=null;}
  if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+ cloudChangesPending=false;
 }
 
 // The Refresh from cloud button remains available as a manual backup.
