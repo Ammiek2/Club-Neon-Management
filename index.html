@@ -1373,19 +1373,18 @@ window.editProduct=async id=>{
 };
 
 window.adjustStock=async id=>{
+ if(role!=='admin')return alert('Admin access only.');
  const p=products.find(x=>x.id===id);if(!p)return;
  const n=Number(prompt('Enter CORRECT current stock count for '+p.name,p.stock));
  if(!Number.isFinite(n)||n<0||Math.round(n*1000)!==n*1000)return alert('Enter a valid stock quantity (up to 3 decimal places).');
- const diff=n-Number(p.stock);if(diff===0)return alert('Stock figure is unchanged.');
- if(!confirm(`Change ${p.name} stock from ${p.stock} to ${n}?`))return;
- const {error}=await sb.from('products').update({stock:n}).eq('id',id).eq('business_id',bid);
- if(error)return alert(error.message);
- const movement=await sb.from('stock_movements').insert({
-  business_id:bid,product_id:id,movement_type:'correction',
-  quantity:diff,unit_cost:p.buying_cost,note:`Stock corrected from ${p.stock} to ${n}`
+ if(n===Number(p.stock))return alert('Stock figure is unchanged.');
+ if(!confirm(`Change ${p.name} stock from ${p.stock} to ${n}? This will save the correction and its movement history together.`))return;
+ const {data,error}=await sb.rpc('club_neon_adjust_stock',{
+  p_business:bid,p_product:id,p_new_stock:n
  });
- if(movement.error)alert('Stock updated, but movement history could not be saved: '+movement.error.message);
- notify('Stock corrected.');await refreshAll();
+ if(error)return alert('Stock correction was not saved: '+error.message);
+ notify('Stock corrected and movement history saved.');
+ await refreshAll();
 };
 
 window.deleteProduct=async function(id){
