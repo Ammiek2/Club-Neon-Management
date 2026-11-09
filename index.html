@@ -219,7 +219,14 @@ main{padding:10px}
   <div class="panel">
    <h2>Previous stock purchases (formerly recorded as expenses)</h2>
    <p class="hint">This separate table preserves the earlier Stock-category entries. They are shown here for reference and are excluded from ordinary expenses so they are not counted twice. Select the collection date above, then add a supplier purchase for that date. You can also choose a past or future date when adding.</p>
-   <div class="actions"><button id="addLegacyStockExpenseButton" onclick="addLegacyStockExpense()">＋ Add previous stock purchase</button></div>
+   <div class="grid" id="legacyStockPurchaseForm">
+    <div class="field"><label for="legacyStockDate">Purchase date</label><input id="legacyStockDate" type="date"></div>
+    <div class="field"><label for="legacyStockDescription">Supplier / purchase description</label><input id="legacyStockDescription" type="text" placeholder="Enter supplier or what was purchased"></div>
+    <div class="field"><label for="legacyStockAmount">Total amount (KSh)</label><input id="legacyStockAmount" type="number" min="0" step=".01" placeholder="Enter amount"></div>
+    <div class="field"><label for="legacyStockPayment">Payment method</label><select id="legacyStockPayment"><option value="Cash">Cash</option><option value="M-Pesa">M-Pesa</option></select></div>
+   </div>
+   <div class="actions"><button id="saveLegacyStockExpenseButton" onclick="saveLegacyStockExpense()">Save stock purchase</button><button id="cancelLegacyStockExpenseButton" class="secondary hidden" onclick="cancelLegacyStockExpenseEdit()">Cancel edit</button></div>
+   <p class="hint" id="legacyStockFormMessage">Enter a description for every stock purchase. These historical entries do not change product quantities or get deducted twice.</p>
    <div id="legacyStockExpenseTable" class="tablewrap"></div>
    <div class="metric" id="legacyStockExpenseTotal">KSh 0</div>
   </div>
@@ -722,66 +729,67 @@ window.updateManualBalanceSummary=function(){
  $('manualBalanceAfter').textContent=money(totalSales-totalExpenses);
 };
 
+window.editingLegacyStockExpenseId=null;
 window.renderLegacyStockExpenses=function(){
  const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+ if($('legacyStockDate')&&!$('legacyStockDate').value)$('legacyStockDate').value=day;
  const rows=expenses.filter(x=>date(x.created_at)===day&&String(x.category||'').toLowerCase()==='stock')
   .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
  const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
  $('legacyStockExpenseTable').innerHTML=rows.length
-  ?tbl(['Date','Supplier / description','Amount','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td><button class="secondary small" onclick="editLegacyStockExpense(\''+x.id+'\')">Edit</button></td></tr>'))
+  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\\''+x.id+'\\')">Edit</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
 };
-
-window.addLegacyStockExpense=async()=>{
-  if(role!=='admin')return alert('Admin access only.');
-  const selectedDay=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
-  const dayText=prompt('Purchase date (YYYY-MM-DD):',selectedDay);
-  if(dayText===null)return;
-  const day=dayText.trim();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
-    return alert('Enter a valid purchase date in YYYY-MM-DD format.');
-  const description=prompt('Supplier / purchase description:','');
-  if(description===null)return;
-  const amountText=prompt('Total purchase amount (KSh):','');
-  if(amountText===null)return;
-  const amount=Number(amountText);
-  if(!description.trim()||amountText.trim()===''||!Number.isFinite(amount)||amount<0)
-    return alert('Enter a supplier / description and a valid amount greater than or equal to zero.');
-  const payment=prompt('Payment method (Cash or M-Pesa):','Cash');
-  if(payment===null)return;
-  const paymentMethod=payment.trim();
-  if(!['cash','m-pesa','mpesa'].includes(paymentMethod.toLowerCase()))
-    return alert('Payment method must be Cash or M-Pesa.');
-  const {error}=await sb.from('expenses').insert({
-    business_id:bid,
-    description:description.trim(),
-    category:'Stock',
-    amount,
-    payment_method:paymentMethod.toLowerCase()==='cash'?'Cash':'M-Pesa',
-    created_at:day+'T12:00:00+03:00'
-  });
-  if(error)return alert('Could not add previous stock purchase: '+error.message);
-  selectedCollectionDate=day;
-  if($('collectionDate'))$('collectionDate').value=day;
-  notify('Previous stock purchase added for '+day+'. It is kept separate from itemised Stock-in and ordinary expenses.');
-  await refreshAll();
+window.startEditLegacyStockExpense=function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=expenses.find(e=>e.id===id&&String(e.category||'').toLowerCase()==='stock');
+ if(!x)return alert('This stock purchase record could not be found. Refresh the app and try again.');
+ window.editingLegacyStockExpenseId=id;
+ $('legacyStockDate').value=date(x.created_at);
+ $('legacyStockDescription').value=x.description||'';
+ $('legacyStockAmount').value=String(x.amount??'');
+ $('legacyStockPayment').value=String(x.payment_method||'Cash').toLowerCase()==='m-pesa'?'M-Pesa':'Cash';
+ $('saveLegacyStockExpenseButton').textContent='Update stock purchase';
+ $('cancelLegacyStockExpenseButton').classList.remove('hidden');
+ $('legacyStockFormMessage').textContent='Editing the selected purchase. Update the description, date, amount or payment method, then save.';
+ $('legacyStockDate').scrollIntoView({behavior:'smooth',block:'center'});
 };
-
-window.editLegacyStockExpense=async id=>{
-  if(role!=='admin')return alert('Admin access only.');
-  const x=expenses.find(e=>e.id===id&&String(e.category||'').toLowerCase()==='stock');
-  if(!x)return alert('This previous stock purchase record could not be found. Refresh the app and try again.');
-  const description=prompt('Edit supplier / description:',x.description||'Stock purchase');
-  if(description===null)return;
-  const amountText=prompt('Edit total purchase amount (KSh):',String(x.amount??0));
-  if(amountText===null)return;
-  const amount=Number(amountText);
-  if(!description.trim()||!Number.isFinite(amount)||amount<0)return alert('Enter a description and a valid amount greater than or equal to zero.');
-  const {error}=await sb.from('expenses').update({description:description.trim(),amount}).eq('id',id).eq('business_id',bid).eq('category','Stock');
-  if(error)return alert('Could not edit previous stock purchase: '+error.message);
-  notify('Previous stock purchase updated.');
-  await refreshAll();
+window.cancelLegacyStockExpenseEdit=function(){
+ window.editingLegacyStockExpenseId=null;
+ $('legacyStockDate').value=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+ $('legacyStockDescription').value='';
+ $('legacyStockAmount').value='';
+ $('legacyStockPayment').value='Cash';
+ $('saveLegacyStockExpenseButton').textContent='Save stock purchase';
+ $('cancelLegacyStockExpenseButton').classList.add('hidden');
+ $('legacyStockFormMessage').textContent='Enter a description for every stock purchase. These historical entries do not change product quantities or get deducted twice.';
+};
+window.saveLegacyStockExpense=async function(){
+ if(role!=='admin')return alert('Admin access only.');
+ const day=$('legacyStockDate').value;
+ const description=$('legacyStockDescription').value.trim();
+ const amountText=$('legacyStockAmount').value;
+ const amount=Number(amountText);
+ const payment=$('legacyStockPayment').value;
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
+  return alert('Choose a valid purchase date.');
+ if(!description)return alert('Enter the supplier or purchase description.');
+ if(amountText.trim()===''||!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount greater than or equal to zero.');
+ if(!['Cash','M-Pesa'].includes(payment))return alert('Choose Cash or M-Pesa.');
+ const payload={description,amount,payment_method:payment,created_at:day+'T12:00:00+03:00'};
+ let result;
+ if(window.editingLegacyStockExpenseId){
+  result=await sb.from('expenses').update(payload).eq('id',window.editingLegacyStockExpenseId).eq('business_id',bid).eq('category','Stock');
+ }else{
+  result=await sb.from('expenses').insert({...payload,business_id:bid,category:'Stock'});
+ }
+ if(result.error)return alert('Could not save previous stock purchase: '+result.error.message);
+ selectedCollectionDate=day;
+ if($('collectionDate'))$('collectionDate').value=day;
+ window.cancelLegacyStockExpenseEdit();
+ notify(window.editingLegacyStockExpenseId?'Previous stock purchase updated.':'Previous stock purchase saved.');
+ await refreshAll();
 };
 
 window.renderDailyStockPurchases=function(){
@@ -994,6 +1002,7 @@ function render(){
 window.changeCollectionDate=async function(){
  const day=$('collectionDate').value||date(new Date());
  selectedCollectionDate=day;
+ if($('legacyStockDate')&&!window.editingLegacyStockExpenseId)$('legacyStockDate').value=day;
  if($('balanceDate'))$('balanceDate').value=day;
  if($('stockTakeDate'))$('stockTakeDate').value=day;
  render();
