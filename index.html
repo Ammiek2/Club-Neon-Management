@@ -218,6 +218,12 @@ main{padding:10px}
    </div>
    <p class="hint" id="dailyStockPurchaseNote">The listed purchase total should match the manual stock total above. Entries with no saved buying cost are not guessed.</p>
   </div>
+  <div class="panel">
+   <h2>Previous stock purchases (formerly recorded as expenses)</h2>
+   <p class="hint">This separate table preserves the earlier Stock-category entries. They are shown here for reference and are excluded from ordinary expenses so they are not counted twice.</p>
+   <div id="legacyStockExpenseTable" class="tablewrap"></div>
+   <div class="metric" id="legacyStockExpenseTotal">KSh 0</div>
+  </div>
   <h2>Current stock position</h2>
   <div class="cards">
    <div class="card"><div class="muted">Total stock quantity</div><div class="metric" id="stockQtyTotal">0</div></div>
@@ -720,6 +726,17 @@ window.updateManualBalanceSummary=function(){
  $('manualBalanceAfter').textContent=money(totalSales-totalStock-totalExpenses);
 };
 
+window.renderLegacyStockExpenses=function(){
+ const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+ const rows=expenses.filter(x=>date(x.created_at)===day&&String(x.category||'').toLowerCase()==='stock')
+  .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+ const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
+ $('legacyStockExpenseTable').innerHTML=rows.length
+  ?tbl(['Date','Supplier / description','Amount'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td></tr>'))
+  :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
+ $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
+};
+
 window.renderDailyStockPurchases=function(){
  const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
  const rows=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type||'').toLowerCase()==='stock_in')
@@ -824,6 +841,7 @@ function render(){
   $('mpesaToday').textContent=money(mpesaToday);
   updateManualBalanceSummary();
   renderDailyStockPurchases();
+  renderLegacyStockExpenses();
   $('de').textContent=money(e);
   $('dg').textContent=money(s-c);
   $('dn').textContent=money(s-c-e);
