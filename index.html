@@ -739,7 +739,7 @@ window.addLegacyStockExpense=async()=>{
   const dayText=prompt('Purchase date (YYYY-MM-DD):',selectedDay);
   if(dayText===null)return;
   const day=dayText.trim();
-  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
     return alert('Enter a valid purchase date in YYYY-MM-DD format.');
   const description=prompt('Supplier / purchase description:','');
   if(description===null)return;
