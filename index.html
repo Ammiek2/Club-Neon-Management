@@ -821,8 +821,8 @@ window.renderDailyStockPurchases=function(){
   const lineTotal=costRecorded?qty*unit:0;
   if(costRecorded)total+=lineTotal;else missing++;
    const suggested=Number(p?.buying_cost||0);
-   const fillButton=!costRecorded&&suggested>0&&role==='admin'?' <button class="small" onclick="fillMissingStockInCost(\\''+x.id+'\\')">Use current price ('+money(suggested)+')</button>':'';
-   return '<tr><td>'+esc(name)+'</td><td>'+qty.toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+(costRecorded?money(unit):'<span class="error">Not recorded</span>')+'</td><td>'+(costRecorded?money(lineTotal):'<span class="error">Pending cost</span>')+'</td><td><button class="secondary small" onclick="editStockInMovement(\\''+x.id+'\\')">Edit</button>'+fillButton+' <button class="danger small" onclick="deleteStockInMovement(\\''+x.id+'\\')">Delete</button></td></tr>';
+   const fillButton=!costRecorded&&suggested>0&&role==='admin'?' <button class="small" onclick="fillMissingStockInCost(\''+x.id+'\')">Use current price ('+money(suggested)+')</button>':'';
+   return '<tr><td>'+esc(name)+'</td><td>'+qty.toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+(costRecorded?money(unit):'<span class="error">Not recorded</span>')+'</td><td>'+(costRecorded?money(lineTotal):'<span class="error">Pending cost</span>')+'</td><td><button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>'+fillButton+' <button class="danger small" onclick="deleteStockInMovement(\''+x.id+'\')">Delete</button></td></tr>';
  });
  $('dailyStockPurchases').innerHTML=rows.length
   ?tbl(['Product bought','Quantity','Buying cost / unit','Total cost','Action'],html)
@@ -1440,7 +1440,7 @@ window.fillMissingStockInCost=async function(id){
   const suggested=Number(p.buying_cost||0);
   if(!Number.isFinite(suggested)||suggested<=0)return alert('This product has no valid current buying price. Edit the stock-in entry and enter its actual cost.');
   const qty=Number(x.quantity||0);
-  if(!confirm('Fill the missing historical cost for '+p.name+'?\\n\\nStock-in date: '+date(x.created_at)+'\\nQuantity: '+qty+'\\nSuggested unit cost from the product record: '+money(suggested)+'\\nTotal cost: '+money(qty*suggested)+'\\n\\nThis uses the CURRENT product buying price as an estimate. Continue only if it matches the actual purchase cost.'))return;
+  if(!confirm('Fill the missing historical cost for '+p.name+'?\n\nStock-in date: '+date(x.created_at)+'\nQuantity: '+qty+'\nSuggested unit cost from the product record: '+money(suggested)+'\nTotal cost: '+money(qty*suggested)+'\n\nThis uses the CURRENT product buying price as an estimate. Continue only if it matches the actual purchase cost.'))return;
   const {error}=await sb.from('stock_movements').update({unit_cost:suggested})
    .eq('id',id).eq('business_id',bid).eq('movement_type','stock_in').or('unit_cost.is.null,unit_cost.eq.0');
   if(error)return alert('Could not fill the missing cost: '+error.message);
