@@ -264,7 +264,8 @@ main{padding:10px}
    <h2>Daily stock take</h2>
    <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to highlight and save an issue; flagged products cannot be recorded until you resolve the marker. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
    <div class="grid">
-    <div class="field"><label>Collection date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
+    <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
+    <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
     <div class="field"><label>Opening stock</label><input id="stOpening" type="number" min="0" step="0.001" value="0"></div>
     <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
@@ -278,6 +279,12 @@ main{padding:10px}
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
    <div id="dailyStockTakeTable" class="tablewrap"></div>
+   <div class="panel hidden" id="periodStockTakeSummary" style="margin-top:14px">
+    <h3 id="periodStockTakeTitle">Weekly stock-taking summary</h3>
+    <p class="hint" id="periodStockTakeDescription">Period totals are calculated from saved daily stock takes, sales and stock-in records. Record the physical closing count on the selected closing date using the daily entry above.</p>
+    <div class="cards" id="periodStockTakeTotals"></div>
+    <div id="periodStockTakeTable" class="tablewrap"></div>
+   </div>
   </div>
   <div class="panel" id="addProductPanel">
    <h2>Add product / opening stock</h2>
@@ -313,12 +320,13 @@ main{padding:10px}
   <h1>Reports</h1>
   <div class="panel">
    <div class="grid">
+    <div class="field"><label>Quick period</label><select id="reportPeriodPreset"><option value="daily">Daily</option><option value="weekly">Weekly to date</option><option value="monthly">Monthly to date</option><option value="custom">Custom dates</option></select></div>
     <div class="field"><label>From date</label><input id="from" type="date"></div>
     <div class="field"><label>To date</label><input id="to" type="date"></div>
     <div class="field"><label>Records to include</label><select id="reportType"><option value="all">All records</option><option value="sales">Sales history</option><option value="expenses">Expenses</option><option value="stock">Stock movements</option><option value="takes">Daily stock takes</option><option value="profit">Profit &amp; loss summary</option></select></div>
    </div>
    <p class="hint">Exports contain the records between the selected dates, with a business name, reporting period, totals and transaction details.</p>
-   <div class="actions"><button onclick="renderReports()">Run report</button><button class="secondary" onclick="exportCSV()">Export dated CSV</button><button class="secondary" onclick="exportPDF()">Print / Save PDF</button></div>
+   <div class="actions"><button class="secondary" onclick="applyReportPeriod()">Apply period</button><button onclick="renderReports()">Run report</button><button class="secondary" onclick="exportCSV()">Export dated CSV</button><button class="secondary" onclick="exportPDF()">Print / Save PDF</button></div>
    <p id="reportExportStatus" class="hint">Choose a date range, select the records, then export.</p>
   </div>
   <div class="cards">
@@ -869,6 +877,82 @@ function stockSalesForDate(day,stockRows=dailyStockTakes){
  return {actualSales,unallocatedSales,unallocatedCost,unallocatedQty,totalSales:actualSales+unallocatedSales};
 }
 
+function localDayString(d){
+ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return y+'-'+m+'-'+day;
+}
+function periodRange(mode,anchor){
+ const d=new Date((anchor||date(new Date()))+'T12:00:00');
+ if(Number.isNaN(d.getTime()))throw new Error('Choose a valid date.');
+ const end=localDayString(d);
+ if(mode==='daily')return{from:end,to:end};
+ if(mode==='weekly'){
+  const offset=(d.getDay()+6)%7;
+  d.setDate(d.getDate()-offset);
+  return{from:localDayString(d),to:end};
+ }
+ if(mode==='monthly')return{from:end.slice(0,8)+'01',to:end};
+ return{from:end,to:end};
+}
+window.changeStockTakePeriod=async function(){
+ const mode=$('stockTakePeriod')?.value||'daily';
+ const panel=$('periodStockTakeSummary');
+ if(mode==='daily'){panel?.classList.add('hidden');await loadDailyStockTakes(true);return;}
+ await loadPeriodStockTakeSummary();
+};
+window.loadPeriodStockTakeSummary=async function(){
+ const mode=$('stockTakePeriod')?.value||'weekly';
+ if(mode==='daily')return;
+ const anchor=$('stockTakeDate')?.value||date(new Date());
+ let range;
+ try{range=periodRange(mode,anchor);}catch(e){return alert(e.message);}
+ const panel=$('periodStockTakeSummary');
+ panel?.classList.remove('hidden');
+ $('periodStockTakeTitle').textContent=(mode==='weekly'?'Weekly':'Monthly')+' stock-taking summary';
+ $('periodStockTakeDescription').textContent='Period: '+range.from+' to '+range.to+'. Weekly and monthly totals run from the start of the week/month through the selected closing date. The physical closing figure is the latest saved daily physical count in this period.';
+ $('periodStockTakeTable').innerHTML='<p class="hint">Loading period records…</p>';
+ const startAt=range.from+'T00:00:00+03:00';
+ const endDate=new Date(range.to+'T12:00:00');endDate.setDate(endDate.getDate()+1);
+ const endAt=localDayString(endDate)+'T00:00:00+03:00';
+ const jobs=await Promise.all([
+  sb.from('daily_stock_takes').select('*').eq('business_id',bid).gte('collection_date',range.from).lte('collection_date',range.to).order('collection_date',{ascending:true}),
+  sb.from('sales').select('*').eq('business_id',bid).gte('created_at',startAt).lt('created_at',endAt).order('created_at',{ascending:true}),
+  sb.from('stock_movements').select('*').eq('business_id',bid).gte('created_at',startAt).lt('created_at',endAt).order('created_at',{ascending:true})
+ ]);
+ const bad=jobs.find(x=>x.error);
+ if(bad){$('periodStockTakeTable').innerHTML='<p class="hint">Could not load period stock records: '+esc(bad.error.message)+'</p>';return;}
+ const takes=jobs[0].data||[],periodSales=jobs[1].data||[],periodMoves=jobs[2].data||[];
+ const rows=products.map(p=>{
+  const pt=takes.filter(x=>x.product_id===p.id).sort((a,b)=>a.collection_date.localeCompare(b.collection_date));
+  const opening=pt.length?Number(pt[0].opening_qty||0):null;
+  const physical=pt.length?Number(pt[pt.length-1].closing_qty||0):null;
+  const added=periodMoves.filter(x=>x.product_id===p.id&&String(x.movement_type||'').toLowerCase()==='stock_in').reduce((n,x)=>n+Number(x.quantity||0),0);
+  const wastage=pt.reduce((n,x)=>n+Number(x.wastage_qty||0),0);
+  const dates=new Set([...periodSales.filter(x=>x.product_id===p.id).map(x=>date(x.created_at)),...pt.map(x=>x.collection_date)]);
+  let sold=0,amount=0;
+  dates.forEach(day=>{
+   const ds=periodSales.filter(x=>x.product_id===p.id&&date(x.created_at)===day);
+   const transactionQty=ds.reduce((n,x)=>n+Number(x.quantity||0),0);
+   const saved=pt.find(x=>x.collection_date===day);
+   const dayQty=Math.max(transactionQty,Number(saved?.sold_qty||0));
+   sold+=dayQty;
+   amount+=ds.reduce((n,x)=>n+Number(x.total||0),0)+Math.max(0,dayQty-transactionQty)*Number(p.selling_price||0);
+  });
+  const expected=opening===null?null:opening+added-sold-wastage;
+  return{p,opening,added,sold,wastage,expected,physical,difference:physical===null||expected===null?null:physical-expected,amount,checks:pt.length};
+ }).filter(x=>x.opening!==null||x.added||x.sold||x.wastage||x.checks);
+ const totalSales=rows.reduce((n,x)=>n+x.amount,0),totalAdded=rows.reduce((n,x)=>n+x.added,0),totalSold=rows.reduce((n,x)=>n+x.sold,0);
+ $('periodStockTakeTotals').innerHTML=[['Sales value',money(totalSales)],['Stock received',totalAdded.toFixed(3)],['Quantity sold',totalSold.toFixed(3)],['Products with physical counts',rows.filter(x=>x.physical!==null).length]].map(([label,value])=>'<div class="card"><div class="muted">'+label+'</div><div class="metric">'+value+'</div></div>').join('');
+ $('periodStockTakeTable').innerHTML=tbl(['Product','Opening','Stock in','Sold','Wastage','Expected close','Latest physical close','Difference','Sales value','Daily counts'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+(x.opening===null?'—':x.opening.toFixed(3))+'</td><td>'+x.added.toFixed(3)+'</td><td>'+x.sold.toFixed(3)+'</td><td>'+x.wastage.toFixed(3)+'</td><td>'+(x.expected===null?'—':x.expected.toFixed(3))+'</td><td>'+(x.physical===null?'—':x.physical.toFixed(3))+'</td><td>'+(x.difference===null?'—':x.difference.toFixed(3))+'</td><td>'+money(x.amount)+'</td><td>'+x.checks+'</td></tr>'));
+ if(!rows.length)$('periodStockTakeTable').innerHTML='<p class="hint">No sales, stock-in or daily stock-take records were found in this period.</p>';
+};
+window.applyReportPeriod=function(){
+ const mode=$('reportPeriodPreset')?.value||'custom';
+ if(mode==='custom')return;
+ const anchor=$('to')?.value||date(new Date());
+ const range=periodRange(mode,anchor);
+ $('from').value=range.from;$('to').value=range.to;
+};
 function render(){
  const today=date(new Date());
  const day=selectedCollectionDate||$('collectionDate')?.value||today;
@@ -1010,7 +1094,7 @@ window.changeCollectionDate=async function(){
  await loadManualBalance(true);
  await loadDailyStockTakes(true);
 };
-window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
+window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);if(($('stockTakePeriod')?.value||'daily')==='daily')await loadDailyStockTakes(true);else await loadPeriodStockTakeSummary();};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakes.filter(x=>x.product_id===pid&&x.collection_date<day).sort((a,b)=>b.collection_date.localeCompare(a.collection_date))[0];$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
 window.loadDailyStockTakes=async function(silent=false){
