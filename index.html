@@ -1092,7 +1092,8 @@ window.changeCollectionDate=async function(){
  if($('stockTakeDate'))$('stockTakeDate').value=day;
  render();
  await loadManualBalance(true);
- await loadDailyStockTakes(true);
+ if(($('stockTakePeriod')?.value||'daily')==='daily')await loadDailyStockTakes(true);
+ else await loadPeriodStockTakeSummary();
 };
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);if(($('stockTakePeriod')?.value||'daily')==='daily')await loadDailyStockTakes(true);else await loadPeriodStockTakeSummary();};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
@@ -1177,6 +1178,7 @@ window.loadDailyStockTakes=async function(silent=false){
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
  $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
+ if(($('stockTakePeriod')?.value||'daily')!=='daily')await loadPeriodStockTakeSummary();
 };
 
 window.recordDailyStockTakeProduct=async function(pid){
