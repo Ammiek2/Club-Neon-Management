@@ -737,7 +737,7 @@ window.renderLegacyStockExpenses=function(){
   .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
  const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
  $('legacyStockExpenseTable').innerHTML=rows.length
-  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\\''+x.id+'\\')">Edit</button></td></tr>'))
+  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\''+x.id+'\')">Edit</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
 };
@@ -772,7 +772,7 @@ window.saveLegacyStockExpense=async function(){
  const amountText=$('legacyStockAmount').value;
  const amount=Number(amountText);
  const payment=$('legacyStockPayment').value;
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
   return alert('Choose a valid purchase date.');
  if(!description)return alert('Enter the supplier or purchase description.');
  if(amountText.trim()===''||!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount greater than or equal to zero.');
