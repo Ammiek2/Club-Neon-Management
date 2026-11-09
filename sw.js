@@ -1,4 +1,4 @@
-const CACHE='club-neon-shell-v30-26';
+const CACHE='club-neon-shell-v31-26';
 const SHELL=['/Club-Neon-Management/','/Club-Neon-Management/manifest.webmanifest','/Club-Neon-Management/icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
