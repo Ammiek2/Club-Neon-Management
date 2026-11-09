@@ -218,7 +218,8 @@ main{padding:10px}
   </div>
   <div class="panel">
    <h2>Previous stock purchases (formerly recorded as expenses)</h2>
-   <p class="hint">This separate table preserves the earlier Stock-category entries. They are shown here for reference and are excluded from ordinary expenses so they are not counted twice.</p>
+   <p class="hint">This separate table preserves the earlier Stock-category entries. They are shown here for reference and are excluded from ordinary expenses so they are not counted twice. Select the collection date above, then add a supplier purchase for that date. You can also choose a past or future date when adding.</p>
+   <div class="actions"><button id="addLegacyStockExpenseButton" onclick="addLegacyStockExpense()">＋ Add previous stock purchase</button></div>
    <div id="legacyStockExpenseTable" class="tablewrap"></div>
    <div class="metric" id="legacyStockExpenseTotal">KSh 0</div>
   </div>
@@ -730,6 +731,41 @@ window.renderLegacyStockExpenses=function(){
   ?tbl(['Date','Supplier / description','Amount','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td><button class="secondary small" onclick="editLegacyStockExpense(\''+x.id+'\')">Edit</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
+};
+
+window.addLegacyStockExpense=async()=>{
+  if(role!=='admin')return alert('Admin access only.');
+  const selectedDay=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+  const dayText=prompt('Purchase date (YYYY-MM-DD):',selectedDay);
+  if(dayText===null)return;
+  const day=dayText.trim();
+  if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(day)||Number.isNaN(new Date(day+'T12:00:00+03:00').getTime())||date(new Date(day+'T12:00:00+03:00'))!==day)
+    return alert('Enter a valid purchase date in YYYY-MM-DD format.');
+  const description=prompt('Supplier / purchase description:','');
+  if(description===null)return;
+  const amountText=prompt('Total purchase amount (KSh):','');
+  if(amountText===null)return;
+  const amount=Number(amountText);
+  if(!description.trim()||amountText.trim()===''||!Number.isFinite(amount)||amount<0)
+    return alert('Enter a supplier / description and a valid amount greater than or equal to zero.');
+  const payment=prompt('Payment method (Cash or M-Pesa):','Cash');
+  if(payment===null)return;
+  const paymentMethod=payment.trim();
+  if(!['cash','m-pesa','mpesa'].includes(paymentMethod.toLowerCase()))
+    return alert('Payment method must be Cash or M-Pesa.');
+  const {error}=await sb.from('expenses').insert({
+    business_id:bid,
+    description:description.trim(),
+    category:'Stock',
+    amount,
+    payment_method:paymentMethod.toLowerCase()==='cash'?'Cash':'M-Pesa',
+    created_at:day+'T12:00:00+03:00'
+  });
+  if(error)return alert('Could not add previous stock purchase: '+error.message);
+  selectedCollectionDate=day;
+  if($('collectionDate'))$('collectionDate').value=day;
+  notify('Previous stock purchase added for '+day+'. It is kept separate from itemised Stock-in and ordinary expenses.');
+  await refreshAll();
 };
 
 window.editLegacyStockExpense=async id=>{
