@@ -745,7 +745,7 @@ window.renderLegacyStockExpenses=function(){
   .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
  const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
  $('legacyStockExpenseTable').innerHTML=rows.length
-  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\''+x.id+'\')">Edit</button></td></tr>'))
+  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteLegacyStockExpense(\''+x.id+'\')">Delete</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
 };
@@ -1032,7 +1032,7 @@ function render(){
  <td><button class="secondary small" onclick="editProduct('${p.id}')">Edit</button>
  <button class="secondary small" onclick="adjustStock('${p.id}')">Correct stock</button>
  <button class="${p.active===false?'secondary':'danger'} small" onclick="toggleProduct('${p.id}')">${p.active===false?'Restore':'Archive'}</button>
- <button class="secondary small" onclick="restock('${p.id}')">Stock in</button></td></tr>`));
+ <button class="secondary small" onclick="restock('${p.id}')">Stock in</button> ${role==='admin'?'<button class="danger small" onclick="deleteProduct(\''+p.id+'\')">Delete</button>':''}</td></tr>`));
 
  filterStockProducts();
 
@@ -1060,7 +1060,7 @@ function render(){
  <td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td>
  <td>${esc(x.staff_name)}</td>
  <td><button class="secondary small" onclick="editSale('${x.id}')">Edit</button>
- <button class="danger small" onclick="deleteSale('${x.id}')">Delete</button></td></tr>`));
+ ${role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':''}</td></tr>`));
 
  if(role==='admin'){
   $('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment','Actions'],
@@ -1075,7 +1075,7 @@ function render(){
   <td>${x.active===false?'Inactive':'Active'}</td><td>
   <button class="secondary small" onclick="editStaff('${x.id}')">Edit</button>
   <button class="secondary small" onclick="toggleStaff('${x.id}')">${x.active===false?'Activate':'Deactivate'}</button>
-  <button class="secondary small" onclick="resetStaffPin('${x.id}')">Reset PIN</button></td></tr>`));
+  <button class="secondary small" onclick="resetStaffPin('${x.id}')">Reset PIN</button> <button class="danger small" onclick="deleteStaff('${x.id}')">Delete</button></td></tr>`));
  }
 
  if(role==='admin'){
@@ -1083,7 +1083,7 @@ function render(){
   $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost','Actions'],
   moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
-  <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':String(x.movement_type).toLowerCase()==='correction'?'STOCK CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button>':'—'}</td></tr>`));
+  <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':String(x.movement_type).toLowerCase()==='correction'?'STOCK CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteStockInMovement(\''+x.id+'\')">Delete</button>':'—'}</td></tr>`));
  }else{
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
@@ -1167,12 +1167,12 @@ window.loadDailyStockTakes=async function(silent=false){
   const physical=x?Number(x.closing_qty||0):null;
   const recordAction=flagged
    ?'<button class="secondary small" disabled title="Resolve the explanation marker before recording">Resolve issue first</button>'
-   :x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button>`
+   :x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`
    :`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
   const flagAction=flagged
-   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button>`
+   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTakeFlag(\''+flag.id+'\')">Delete flag</button>':''}`
    :flag
-    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button>`
+    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTakeFlag(\''+flag.id+'\')">Delete flag</button>':''}`
     :`<button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Flag for explanation</button>`;
   const noteText=flagged?'NEEDS EXPLANATION: '+flag.reason:flag?.status==='resolved'?'RESOLVED: '+(flag.resolution_note||flag.reason):x?.note||(x?'':'Not yet recorded');
   return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
