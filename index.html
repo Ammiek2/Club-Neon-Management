@@ -1391,10 +1391,16 @@ window.adjustStock=async id=>{
 window.deleteProduct=async function(id){
  if(role!=='admin')return alert('Admin access only.');
  const p=products.find(x=>x.id===id);if(!p)return;
- if(sales.some(x=>x.product_id===id)||moves.some(x=>x.product_id===id)||dailyStockTakes.some(x=>x.product_id===id))return alert('This product has saved history. Use Archive instead so reports and old records remain correct.');
- if(!confirm('Permanently delete product "'+p.name+'"?'))return;
- const {error}=await sb.from('products').delete().eq('id',id).eq('business_id',bid);
- if(error)alert('Could not delete product: '+error.message+' Use Archive if it has linked records.');else{notify('Product deleted.');await refreshAll();}
+ const linkedSales=sales.filter(x=>x.product_id===id).length;
+ const linkedMoves=moves.filter(x=>x.product_id===id).length;
+ const linkedTakes=dailyStockTakes.filter(x=>x.product_id===id).length;
+ const linkedFlags=(dailyStockTakeFlags||[]).filter(x=>x.product_id===id).length;
+ const summary='Product: '+p.name+'\\nSales records: '+linkedSales+'\\nStock movement records: '+linkedMoves+'\\nDaily stock-take records: '+linkedTakes+'\\nFlag records: '+linkedFlags;
+ if(!confirm('PERMANENTLY DELETE this product and ALL its history?\\n\\n'+summary+'\\n\\nThis cannot be undone. The product, its sales history, stock-in/out/correction history, daily stock takes, stock-take flags and shift stock records will be permanently deleted. Other products and their records will remain.'))return;
+ const {error}=await sb.rpc('club_neon_delete_product_permanently',{p_business:bid,p_product:id});
+ if(error)return alert('Could not permanently delete product: '+error.message);
+ notify('Product and its linked history permanently deleted.');
+ await refreshAll();
 };
 window.toggleProduct=async id=>{
  const p=products.find(x=>x.id===id);if(!p)return;
