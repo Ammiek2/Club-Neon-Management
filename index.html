@@ -727,9 +727,25 @@ window.renderLegacyStockExpenses=function(){
   .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
  const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
  $('legacyStockExpenseTable').innerHTML=rows.length
-  ?tbl(['Date','Supplier / description','Amount'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td></tr>'))
+  ?tbl(['Date','Supplier / description','Amount','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td><button class="secondary small" onclick="editLegacyStockExpense(\''+x.id+'\')">Edit</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
+};
+
+window.editLegacyStockExpense=async id=>{
+  if(role!=='admin')return alert('Admin access only.');
+  const x=expenses.find(e=>e.id===id&&String(e.category||'').toLowerCase()==='stock');
+  if(!x)return alert('This previous stock purchase record could not be found. Refresh the app and try again.');
+  const description=prompt('Edit supplier / description:',x.description||'Stock purchase');
+  if(description===null)return;
+  const amountText=prompt('Edit total purchase amount (KSh):',String(x.amount??0));
+  if(amountText===null)return;
+  const amount=Number(amountText);
+  if(!description.trim()||!Number.isFinite(amount)||amount<0)return alert('Enter a description and a valid amount greater than or equal to zero.');
+  const {error}=await sb.from('expenses').update({description:description.trim(),amount}).eq('id',id).eq('business_id',bid).eq('category','Stock');
+  if(error)return alert('Could not edit previous stock purchase: '+error.message);
+  notify('Previous stock purchase updated.');
+  await refreshAll();
 };
 
 window.renderDailyStockPurchases=function(){
