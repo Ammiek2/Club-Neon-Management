@@ -820,7 +820,7 @@ window.renderDailyStockPurchases=function(){
   const costRecorded=unit>0;
   const lineTotal=costRecorded?qty*unit:0;
   if(costRecorded)total+=lineTotal;else missing++;
-  return '<tr><td>'+esc(name)+'</td><td>'+qty.toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+(costRecorded?money(unit):'<span class="error">Not recorded</span>')+'</td><td>'+(costRecorded?money(lineTotal):'<span class="error">Pending cost</span>')+'</td><td><button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button></td></tr>';
+  return '<tr><td>'+esc(name)+'</td><td>'+qty.toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+(costRecorded?money(unit):'<span class="error">Not recorded</span>')+'</td><td>'+(costRecorded?money(lineTotal):'<span class="error">Pending cost</span>')+'</td><td><button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteStockInMovement(\''+x.id+'\')">Delete</button></td></tr>';
  });
  $('dailyStockPurchases').innerHTML=rows.length
   ?tbl(['Product bought','Quantity','Buying cost / unit','Total cost','Action'],html)
@@ -987,8 +987,8 @@ function render(){
   $('de').textContent=money(e);
   $('dg').textContent=money(s-c);
   $('dn').textContent=money(s-c-e);
-  $('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff'],
-   ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td></tr>`));
+  $('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
+   ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td><td>${role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'—'}</td></tr>`));
  }
 
  const activeProducts=products.filter(p=>p.active!==false);
