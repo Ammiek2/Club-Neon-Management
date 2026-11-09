@@ -214,7 +214,7 @@ main{padding:10px}
     <div class="card"><div class="muted">Total cost of listed purchases</div><div class="metric" id="listedStockCostTotal">KSh 0</div></div>
     <div class="card"><div class="muted">Items with missing cost</div><div class="metric" id="missingStockCostCount">0</div></div>
    </div>
-   <p class="hint" id="dailyStockPurchaseNote">The listed purchase total should match the manual stock total above. Entries with no saved buying cost are not guessed.</p>
+   <p class="hint" id="dailyStockPurchaseNote">Buying costs are calculated from each Stock-in entry. Entries with no saved buying cost are not guessed.</p>
   </div>
   <div class="panel">
    <h2>Previous stock purchases (formerly recorded as expenses)</h2>
@@ -319,7 +319,7 @@ main{padding:10px}
    <div class="card">Gross profit<div class="metric" id="rg">0</div></div>
    <div class="card">Other expenses<div class="metric" id="re">0</div></div>
    <div class="card">Stock total<div class="metric" id="rst">0</div></div>
-   <div class="card">Balance after stock &amp; expenses<div class="metric" id="rba">0</div></div>
+   <div class="card">Sales less other expenses<div class="metric" id="rba">0</div></div>
   </div>
   <div class="panel"><h2>Net result</h2><div class="metric" id="rn">0</div><div id="productReport" class="tablewrap"></div></div>
  </section>
@@ -752,7 +752,7 @@ window.renderDailyStockPurchases=function(){
  $('listedStockCostTotal').textContent=money(total);
  $('missingStockCostCount').textContent=String(missing);
  $('dailyStockPurchaseNote').textContent=missing
-  ?'Listed cost so far: '+money(total)+'. '+missing+' stock-in entr'+(missing===1?'y has':'ies have')+' no buying cost recorded. Edit those entries to make the itemised total complete. Compare the completed total with the manual stock total above.'
+  ?'Listed cost so far: '+money(total)+'. '+missing+' stock-in entr'+(missing===1?'y has':'ies have')+' no buying cost recorded. Edit those entries to make the itemised total complete. The itemised purchase total is shown for reference only; it is not deducted again from daily sales.'
   :'Itemised stock-in purchase total: '+money(total)+'. This is a reference total only and is not deducted again from daily sales.';
 };
 
@@ -1283,7 +1283,7 @@ window.editStockInMovement=async function(id){
 
 window.addExpense=async()=>{
  const description=$('edesc').value.trim(),amount=Number($('eamount').value);
- if(String($('ecat').value||'').toLowerCase().startsWith('stock'))return alert('Enter stock purchases in Dashboard → Manual daily cash count → Stock total purchased. Stock is not an expense.');
+ if(String($('ecat').value||'').toLowerCase().startsWith('stock'))return alert('Enter stock purchases in Stock &amp; products → Stock in. Each purchase is calculated from its quantity and unit buying cost.');
  if(!description||amount<=0)return alert('Enter description and amount.');
  const {error}=await sb.from('expenses').insert({
   business_id:bid,description,category:$('ecat').value,
@@ -1296,8 +1296,8 @@ window.addExpense=async()=>{
 window.editExpense=async id=>{
  const x=expenses.find(e=>e.id===id);if(!x)return;
  const description=prompt('Correct description:',x.description);if(description===null)return;
- const category=prompt('Correct category (stock purchases belong in Dashboard → Stock total):',x.category);if(category===null)return;
- if(String(category).toLowerCase().startsWith('stock'))return alert('Stock purchases are no longer entered as expenses. Use the separate daily Stock total field.');
+ const category=prompt('Correct category (stock purchases belong in Stock & products → Stock in):',x.category);if(category===null)return;
+ if(String(category).toLowerCase().startsWith('stock'))return alert('Stock purchases are recorded item by item in Stock & products → Stock in, not as expenses.');
  const amount=Number(prompt('Correct amount:',x.amount));
  if(!description.trim()||!Number.isFinite(amount)||amount<=0)return alert('Invalid expense details.');
  const payment=prompt('Payment method:',x.payment_method);if(payment===null)return;
