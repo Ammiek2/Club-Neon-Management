@@ -208,6 +208,16 @@ main{padding:10px}
    <button style="margin-top:12px" onclick="saveManualBalance()">Save daily balances</button>
    <p class="hint" id="balanceStatus">No manual balance loaded.</p>
   </div>
+  <div class="panel">
+   <h2>Stock purchases for selected date</h2>
+   <p class="hint">Itemised from saved Stock-in entries. Each line shows the registered product name, quantity bought, buying cost per unit and total cost. Use Edit to enter or correct a missing buying cost.</p>
+   <div id="dailyStockPurchases" class="tablewrap"></div>
+   <div class="cards" style="margin-top:10px">
+    <div class="card"><div class="muted">Total cost of listed purchases</div><div class="metric" id="listedStockCostTotal">KSh 0</div></div>
+    <div class="card"><div class="muted">Items with missing cost</div><div class="metric" id="missingStockCostCount">0</div></div>
+   </div>
+   <p class="hint" id="dailyStockPurchaseNote">The listed purchase total should match the manual stock total above. Entries with no saved buying cost are not guessed.</p>
+  </div>
   <h2>Current stock position</h2>
   <div class="cards">
    <div class="card"><div class="muted">Total stock quantity</div><div class="metric" id="stockQtyTotal">0</div></div>
@@ -710,6 +720,30 @@ window.updateManualBalanceSummary=function(){
  $('manualBalanceAfter').textContent=money(totalSales-totalStock-totalExpenses);
 };
 
+window.renderDailyStockPurchases=function(){
+ const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+ const rows=moves.filter(x=>date(x.created_at)===day&&String(x.movement_type||'').toLowerCase()==='stock_in')
+  .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+ let total=0,missing=0;
+ const html=rows.map(x=>{
+  const p=products.find(z=>z.id===x.product_id);
+  const name=p?.name||'Unknown product';
+  const qty=Number(x.quantity||0),unit=Number(x.unit_cost||0);
+  const costRecorded=unit>0;
+  const lineTotal=costRecorded?qty*unit:0;
+  if(costRecorded)total+=lineTotal;else missing++;
+  return '<tr><td>'+esc(name)+'</td><td>'+qty.toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+(costRecorded?money(unit):'<span class="error">Not recorded</span>')+'</td><td>'+(costRecorded?money(lineTotal):'<span class="error">Pending cost</span>')+'</td><td><button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button></td></tr>';
+ });
+ $('dailyStockPurchases').innerHTML=rows.length
+  ?tbl(['Product bought','Quantity','Buying cost / unit','Total cost','Action'],html)
+  :'<p class="hint">No stock purchases have been registered for '+esc(day)+'. Use Stock &amp; products → Stock in to record purchases.</p>';
+ $('listedStockCostTotal').textContent=money(total);
+ $('missingStockCostCount').textContent=String(missing);
+ $('dailyStockPurchaseNote').textContent=missing
+  ?'Listed cost so far: '+money(total)+'. '+missing+' stock-in entr'+(missing===1?'y has':'ies have')+' no buying cost recorded. Edit those entries to make the itemised total complete. Compare the completed total with the manual stock total above.'
+  :'Listed purchase total: '+money(total)+'. Check that this matches the manual stock total above.';
+};
+
 window.loadManualBalance=async function(silent=false){
  if(role!=='admin'||!bid)return;
  const day=$('balanceDate')?.value||date(new Date());
@@ -789,6 +823,7 @@ function render(){
   $('cashToday').textContent=money(cashToday);
   $('mpesaToday').textContent=money(mpesaToday);
   updateManualBalanceSummary();
+  renderDailyStockPurchases();
   $('de').textContent=money(e);
   $('dg').textContent=money(s-c);
   $('dn').textContent=money(s-c-e);
