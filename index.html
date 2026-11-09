@@ -778,6 +778,7 @@ window.saveLegacyStockExpense=async function(){
  if(amountText.trim()===''||!Number.isFinite(amount)||amount<0)return alert('Enter a valid amount greater than or equal to zero.');
  if(!['Cash','M-Pesa'].includes(payment))return alert('Choose Cash or M-Pesa.');
  const payload={description,amount,payment_method:payment,created_at:day+'T12:00:00+03:00'};
+ const wasEditing=!!window.editingLegacyStockExpenseId;
  let result;
  if(window.editingLegacyStockExpenseId){
   result=await sb.from('expenses').update(payload).eq('id',window.editingLegacyStockExpenseId).eq('business_id',bid).eq('category','Stock');
@@ -788,7 +789,7 @@ window.saveLegacyStockExpense=async function(){
  selectedCollectionDate=day;
  if($('collectionDate'))$('collectionDate').value=day;
  window.cancelLegacyStockExpenseEdit();
- notify(window.editingLegacyStockExpenseId?'Previous stock purchase updated.':'Previous stock purchase saved.');
+ notify(wasEditing?'Previous stock purchase updated.':'Previous stock purchase saved.');
  await refreshAll();
 };
 
