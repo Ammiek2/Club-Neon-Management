@@ -1069,7 +1069,7 @@ window.loadPeriodStockTakeSummary=async function(){
  const rows=products.map(p=>{
   const pt=takes.filter(x=>x.product_id===p.id).sort((a,b)=>a.collection_date.localeCompare(b.collection_date));
   const opening=pt.length?Number(pt[0].opening_qty||0):null;
-  const physical=pt.length?Number(pt[pt.length-1].closing_qty||0):null;
+  const physical=pt.length?Number(pt[pt.length-1].physical_closing_qty??pt[pt.length-1].closing_qty??0):null;
   const added=periodMoves.filter(x=>x.product_id===p.id&&String(x.movement_type||'').toLowerCase()==='stock_in').reduce((n,x)=>n+Number(x.quantity||0),0);
   const wastage=pt.reduce((n,x)=>n+Number(x.wastage_qty||0),0);
   const dates=new Set([...periodSales.filter(x=>x.product_id===p.id).map(x=>date(x.created_at)),...pt.map(x=>x.collection_date)]);
@@ -1082,8 +1082,8 @@ window.loadPeriodStockTakeSummary=async function(){
    sold+=dayQty;
    amount+=ds.reduce((n,x)=>n+Number(x.total||0),0)+Math.max(0,dayQty-transactionQty)*Number(p.selling_price||0);
   });
-  const expected=opening===null?null:opening+added-sold-wastage;
-  return{p,opening,added,sold,wastage,expected,physical,difference:physical===null||expected===null?null:physical-expected,amount,checks:pt.length};
+  const adjustment=periodMoves.filter(x=>x.product_id===p.id&&String(x.movement_type||'').toLowerCase()==='correction').reduce((n,x)=>{const note=String(x.note||'');const up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);\n  const expected=opening===null?null:opening+added-sold-wastage+adjustment;
+  return{p,opening,added,sold,wastage,adjustment,expected,physical,difference:physical===null||expected===null?null:physical-expected,amount,checks:pt.length};
  }).filter(x=>x.opening!==null||x.added||x.sold||x.wastage||x.checks);
  const totalSales=rows.reduce((n,x)=>n+x.amount,0),totalAdded=rows.reduce((n,x)=>n+x.added,0),totalSold=rows.reduce((n,x)=>n+x.sold,0);
  $('periodStockTakeTotals').innerHTML=[['Sales value',money(totalSales)],['Stock received',totalAdded.toFixed(3)],['Quantity sold',totalSold.toFixed(3)],['Products with physical counts',rows.filter(x=>x.physical!==null).length]].map(([label,value])=>'<div class="card"><div class="muted">'+label+'</div><div class="metric">'+value+'</div></div>').join('');
