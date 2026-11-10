@@ -1411,28 +1411,22 @@ window.updateSalePrice=()=>{
 
 window.recordSale=async()=>{
  const p=products.find(x=>x.id===$('sp').value&&x.active!==false);
- const q=Number($('sq').value);
- const price=Number(p?.selling_price);
- const sid=role==='staff'?currentStaffId:$('sstaff').value;
- const st=staff.find(x=>x.id===sid);
-
+ const q=Number($('sq').value),price=Number(p?.selling_price);
+ const sid=role==='staff'?currentStaffId:$('sstaff').value,st=staff.find(x=>x.id===sid);
+ const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
+ const isToday=day===date(new Date());
  if(!p||!Number.isFinite(q)||q<=0||Math.round(q*1000)!==q*1000)return alert('Choose a product and valid quantity (up to 3 decimal places).');
  if(!Number.isFinite(price)||price<0)return alert('Enter a valid selling price.');
- if(q>p.stock)return alert('Not enough stock. Available: '+p.stock);
-
+ if(isToday&&q>p.stock)return alert('Not enough current stock. Available: '+p.stock);
+ if(!confirm('Save this sale under '+formatDate(day)+'? '+(isToday?'Current stock will be reduced.':'Historical entry: current live stock will remain unchanged.')))return;
  const {error}=await sb.rpc('club_neon_record_sale',{
   p_business:bid,p_product:p.id,p_quantity:q,p_unit_price:price,
   p_payment:$('pay').value,p_staff_id:sid||null,
   p_staff_name:role==='staff'?currentStaffName:(st?.name||'Owner'),
-  p_note:$('snote').value||null
+  p_note:$('snote').value||null,p_record_date:day
  });
  if(error)alert(error.message);
- else{
-  $('sq').value=1;$('snote').value='';updateSalePrice();
-  $('smsg').textContent='Sale saved successfully.';
-  notify('New sale saved. Stock and product selections refreshed.');
-  await refreshAll();
- }
+ else{$('sq').value=1;$('snote').value='';updateSalePrice();$('smsg').textContent='Sale saved for '+formatDate(day)+'.';notify('Sale saved for '+formatDate(day)+'.');await refreshAll();}
 };
 
 window.editSale=async id=>{
@@ -1535,7 +1529,7 @@ window.saveProduct=async()=>{
   if(error)return alert(error.message);
   if(qty){
    const r=await sb.rpc('club_neon_add_stock',{
-    p_business:bid,p_product:old.id,p_quantity:qty,p_unit_cost:cost,p_note:'Additional stock'
+    p_business:bid,p_product:old.id,p_quantity:qty,p_unit_cost:cost,p_note:'Additional stock',p_record_date:$('collectionDate')?.value||selectedCollectionDate||date(new Date())
    });
    if(r.error)return alert(r.error.message);
   }
@@ -1617,7 +1611,7 @@ window.restock=async id=>{
  const c=Number(prompt('New unit buying cost',p.buying_cost));
  if(!Number.isFinite(c)||c<0)return;
  const {error}=await sb.rpc('club_neon_add_stock',{
-  p_business:bid,p_product:id,p_quantity:q,p_unit_cost:c,p_note:'Stock-in'
+  p_business:bid,p_product:id,p_quantity:q,p_unit_cost:c,p_note:'Stock-in',p_record_date:$('collectionDate')?.value||selectedCollectionDate||date(new Date())
  });
  if(error)alert(error.message);
  else{notify('Stock added.');await refreshAll();}
@@ -1685,9 +1679,10 @@ window.addExpense=async()=>{
  const description=$('edesc').value.trim(),amount=Number($('eamount').value);
  if(String($('ecat').value||'').toLowerCase().startsWith('stock'))return alert('Enter stock purchases in Stock &amp; products → Stock in. Each purchase is calculated from its quantity and unit buying cost.');
  if(!description||amount<=0)return alert('Enter description and amount.');
+ const day=$('collectionDate')?.value||selectedCollectionDate||date(new Date());
  const {error}=await sb.from('expenses').insert({
   business_id:bid,description,category:$('ecat').value,
-  amount,payment_method:$('epay').value
+  amount,payment_method:$('epay').value,created_at:day+'T12:00:00+03:00'
  });
  if(error)alert(error.message);
  else{$('edesc').value='';$('eamount').value='';notify('Expense saved.');await refreshAll();}
