@@ -286,7 +286,7 @@ main{padding:10px}
   <h1>Stock & products</h1>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Daily stock take</h2>
-   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to highlight and save an issue. Flags are visual reminders only and never block recording, editing, sales or stock updates. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
+   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to mark an issue on this date only. Notes and flags from another date will not carry into this date. Flags are visual reminders only and never block recording, editing, sales or stock updates. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
    <div class="grid">
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
@@ -1266,7 +1266,7 @@ window.changeCollectionDate=async function(){
  await loadManualBalance(true);
  await loadDailyStockTakes(true);
 };
-window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
+window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='correction'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.filterStockTakeProducts=function(silent=false){
  const select=$('stockTakeProduct'),search=$('stockTakeProductSearch');
@@ -1394,12 +1394,12 @@ window.recordDailyStockTakeProduct=async function(pid){
 window.flagDailyStockTakeIssue=async function(pid){
  const day=$('stockTakeDate').value||date(new Date());
  const p=products.find(x=>x.id===pid);if(!p)return;
- const old=dailyStockTakeFlags.find(x=>x.product_id===pid);
- const reason=prompt('Why does '+p.name+' need an explanation? This marker will stay saved until you resolve it.',old?.reason||'Stock figure needs checking');
+ const old=dailyStockTakeFlags.find(x=>x.product_id===pid&&x.collection_date===day);
+ const reason=prompt('Why does '+p.name+' need an explanation on '+formatDate(day)+'? This marker belongs to this date only.',old?.reason||'Stock figure needs checking');
  if(reason===null)return;if(!reason.trim())return alert('Enter a short explanation before saving the marker.');
  const {error}=await sb.from('daily_stock_take_flags').upsert({business_id:bid,collection_date:day,product_id:pid,reason:reason.trim(),status:'open',resolution_note:null,resolved_at:null,resolved_by:null,updated_at:new Date().toISOString()},{onConflict:'business_id,collection_date,product_id'});
  if(error)return alert('Could not save explanation marker: '+error.message);
- notify('Explanation marker saved. The product is highlighted until the issue is resolved.');
+ notify('Explanation marker saved for '+formatDate(day)+' only. It will not appear on other dates.');
  await loadDailyStockTakes(true);
 };
 window.resolveDailyStockTakeIssue=async function(id){
