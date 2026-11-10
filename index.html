@@ -1089,6 +1089,7 @@ window.loadPeriodStockTakeSummary=async function(){
  $('periodStockTakeTotals').innerHTML=[['Sales value',money(totalSales)],['Stock received',totalAdded.toFixed(3)],['Quantity sold',totalSold.toFixed(3)],['Products with physical counts',rows.filter(x=>x.physical!==null).length]].map(([label,value])=>'<div class="card"><div class="muted">'+label+'</div><div class="metric">'+value+'</div></div>').join('');
  $('periodStockTakeTable').innerHTML=tbl(['Product','Opening','Stock in','Sold','Wastage','Expected close','Latest physical close','Difference','Sales value','Daily counts'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+(x.opening===null?'—':x.opening.toFixed(3))+'</td><td>'+x.added.toFixed(3)+'</td><td>'+x.sold.toFixed(3)+'</td><td>'+x.wastage.toFixed(3)+'</td><td>'+(x.expected===null?'—':x.expected.toFixed(3))+'</td><td>'+(x.physical===null?'—':x.physical.toFixed(3))+'</td><td>'+(x.difference===null?'—':x.difference.toFixed(3))+'</td><td>'+money(x.amount)+'</td><td>'+x.checks+'</td></tr>'));
  if(!rows.length)$('periodStockTakeTable').innerHTML='<p class="hint">No sales, stock-in or daily stock-take records were found in this period.</p>';
+ if($('appProductSearch')?.value)window.filterAppProducts();
 };
 window.applyReportPeriod=function(){
  const mode=$('reportPeriodPreset')?.value||'custom';
@@ -1223,6 +1224,7 @@ function render(){
   $('stockHistory').innerHTML='';
  }
  if(role==='admin'){renderDailyRecords();renderCashVariances();}
+ if($('appProductSearch')?.value)window.filterAppProducts();
 }
 
 function renderDailyRecords(){
@@ -1368,6 +1370,7 @@ window.loadDailyStockTakes=async function(silent=false){
  $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
  if(($('stockTakePeriod')?.value||'daily')!=='daily')await loadPeriodStockTakeSummary();
+ if($('appProductSearch')?.value)window.filterAppProducts();
 };
 
 window.recordDailyStockTakeProduct=async function(pid){
