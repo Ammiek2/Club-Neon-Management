@@ -416,7 +416,7 @@ const sb=createClient(
 );
 
 let bid=null,activeBusinessName='Club Neon',products=[],sales=[],expenses=[],staff=[],moves=[];
-let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[],dailyRecordsTakes=[],cashVariances=[];
+let dailyBalance=null, dailyStockTakes=[],dailyStockTakeHistory=[],dailyStockTakeFlags=[],dailyRecordsTakes=[],cashVariances=[];
 let editingCashVarianceId=null;
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
@@ -1280,13 +1280,19 @@ window.filterStockTakeProducts=function(silent=false){
  else if(matches.length)select.value=matches[0].id;
  if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
 };
-window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakes.filter(x=>x.product_id===pid&&x.collection_date<day).sort((a,b)=>b.collection_date.localeCompare(a.collection_date))[0];$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
+window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
  const day=$('stockTakeDate').value||date(new Date());
- const {data,error}=await sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});
+ const [currentResult,historyResult]=await Promise.all([
+  sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true}),
+  sb.from('daily_stock_takes').select('product_id,collection_date,opening_qty,stock_added,sold_qty,wastage_qty,closing_qty').eq('business_id',bid).lt('collection_date',day).order('collection_date',{ascending:false}).range(0,9999)
+ ]);
+ const {data,error}=currentResult;
  if(error){$('stockTakeStatus').textContent='Daily stock take setup required: '+error.message;$('dailyStockTakeTable').innerHTML='';return;}
+ if(historyResult.error){$('stockTakeStatus').textContent='Could not load previous closing balances: '+historyResult.error.message;$('dailyStockTakeTable').innerHTML='';return;}
  dailyStockTakes=data||[];
+ dailyStockTakeHistory=historyResult.data||[];
  const {data:flagData,error:flagError}=await sb.from('daily_stock_take_flags').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true});
  if(flagError){$('stockTakeStatus').textContent='Could not load saved explanation markers: '+flagError.message;$('dailyStockTakeTable').innerHTML='';return;}
  dailyStockTakeFlags=flagData||[];
@@ -1335,7 +1341,7 @@ window.loadDailyStockTakes=async function(silent=false){
   const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
   const sold=x?Number(x.sold_qty||0):figures.sold;
   const added=x?Number(x.stock_added||0):figures.added;
-  const opening=x?Number(x.opening_qty||0):Math.max(0,Number(p.stock||0)-added+sold);
+  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.closing_qty||0):Math.max(0,Number(p.stock||0)-added+sold);
   const wastage=x?Number(x.wastage_qty||0):0;
   const expected=opening+added-sold-wastage;
   const missing=x?Math.max(0,sold-actualQty):0;
