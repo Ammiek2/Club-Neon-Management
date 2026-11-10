@@ -261,7 +261,7 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></div>
  </section>
 
  <section id="stock" class="page hidden">
@@ -1353,12 +1353,19 @@ window.editSale=async id=>{
  else{notify('Sale EDITED. Stock and reports refreshed.');await refreshAll();}
 };
 
-window.moveDailySalesDate=async()=>{
+window.moveDailySalesDate=()=>{
  if(role!=='admin')return alert('Admin access only. Unlock Club Neon as administrator.');
- const from=prompt('Move all saved sales FROM which date? Enter YYYY-MM-DD:',selectedCollectionDate||'2026-11-10');
- if(from===null)return;
- const to=prompt('Move those sales TO which date? Enter YYYY-MM-DD:','2026-10-02');
- if(to===null)return;
+ const panel=$('moveSalesDatePanel');
+ if(!panel)return alert('Date transfer form could not be loaded. Refresh Club Neon.');
+ panel.classList.toggle('hidden');
+ if(!panel.classList.contains('hidden')){
+  $('moveSalesFromDate').value=selectedCollectionDate||$('collectionDate')?.value||'';
+  $('moveSalesToDate').value='';
+  $('moveSalesFromDate').focus();
+ }
+};
+window.executeMoveDailySalesDate=async()=>{
+ if(role!=='admin')return alert('Admin access only.');
  const parseDate=v=>{
   const parts=String(v||'').trim().split('-').map(Number);
   if(parts.length!==3||parts.some(n=>!Number.isInteger(n)))return null;
@@ -1368,15 +1375,19 @@ window.moveDailySalesDate=async()=>{
   if(check.getUTCFullYear()!==y||check.getUTCMonth()!==m-1||check.getUTCDate()!==d)return null;
   return [String(y).padStart(4,'0'),String(m).padStart(2,'0'),String(d).padStart(2,'0')].join('-');
  };
- const fromDate=parseDate(from),toDate=parseDate(to);
- if(!fromDate||!toDate)return alert('Enter valid dates in YYYY-MM-DD format. Example: 2026-11-10 and 2026-10-02.');
+ const fromDate=parseDate($('moveSalesFromDate')?.value),toDate=parseDate($('moveSalesToDate')?.value);
+ if(!fromDate||!toDate)return alert('Enter both valid dates as YYYY-MM-DD. Example: 2026-11-10 and 2026-10-02.');
  if(fromDate===toDate)return alert('The From date and To date must be different.');
  if(!confirm('Move every saved sale on '+formatDate(fromDate)+' to '+formatDate(toDate)+', including matching sale movement history? Quantities, prices, payments and current stock will remain unchanged.'))return;
+ const btn=document.querySelector('#moveSalesDatePanel button:not(.secondary)');
+ if(btn){btn.disabled=true;btn.textContent='Moving...';}
  const {data,error}=await sb.rpc('club_neon_move_daily_sales_date',{p_business:bid,p_from_date:fromDate,p_to_date:toDate});
+ if(btn){btn.disabled=false;btn.textContent='Move sales';}
  if(error)return alert(error.message);
  const moved=Number(data?.sales_moved||0);
  if(!moved)return alert('No saved sales were found on '+formatDate(fromDate)+'. Nothing was changed.');
  $('collectionDate').value=toDate; selectedCollectionDate=toDate;
+ $('moveSalesDatePanel').classList.add('hidden');
  await window.refreshAll();
  notify(moved+' sales and '+Number(data?.sale_movements_moved||0)+' matching sale movements moved from '+formatDate(fromDate)+' to '+formatDate(toDate)+'. Quantities, amounts and stock balances were preserved.');
 };
