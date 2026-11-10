@@ -1355,9 +1355,9 @@ window.loadDailyStockTakes=async function(silent=false){
    :x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`
    :`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
   const flagAction=flagged
-   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTakeFlag(\''+flag.id+'\')">Delete flag</button>':''}`
+   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
    :flag
-    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTakeFlag(\''+flag.id+'\')">Delete flag</button>':''}`
+    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
     :`<button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Flag for explanation</button>`;
   const noteText=flagged?'NEEDS EXPLANATION: '+flag.reason:flag?.status==='resolved'?'RESOLVED: '+(flag.resolution_note||flag.reason):x?.note||(x?'':'Not yet recorded');
   return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+adjustment.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
@@ -1815,12 +1815,12 @@ window.deleteDailyStockTake=async function(id){
  const {error}=await sb.from('daily_stock_takes').delete().eq('id',id).eq('business_id',bid);
  if(error)alert(error.message);else{notify('Stock-take record deleted.');await loadDailyStockTakes();}
 };
-window.deleteDailyStockTakeFlag=async function(id){
+window.unflagDailyStockTakeFlag=async function(id){
  if(role!=='admin')return alert('Admin access only.');
  const x=dailyStockTakeFlags.find(f=>f.id===id);if(!x)return;
- if(!confirm('Delete this explanation marker?'))return;
+ if(!confirm('Remove this flag? The stock-take record and its quantities will remain unchanged.'))return;
  const {error}=await sb.from('daily_stock_take_flags').delete().eq('id',id).eq('business_id',bid);
- if(error)alert(error.message);else{notify('Explanation marker deleted.');await loadDailyStockTakes();}
+ if(error)alert('Could not unflag this product: '+error.message);else{notify('Flag removed. Stock records were not changed.');await loadDailyStockTakes();}
 };
 window.addStaff=async()=>{
  const name=$('staffName').value.trim();
