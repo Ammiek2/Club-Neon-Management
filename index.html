@@ -298,7 +298,7 @@ main{padding:10px}
     <div class="field"><label>Physical closing stock</label><input id="stClosing" type="number" min="0" step="0.001" value="0"></div>
     <div class="field"><label>Note / correction reason</label><input id="stNote" type="text" placeholder="Optional"></div>
    </div>
-   <p class="hint">Stock received and quantities sold are calculated automatically from saved stock-in and sales records. Expected closing = opening + added − sold − wastage. Saving reconciles live stock to physical closing when no later activity exists.
+   <p class="hint">Stock received, sales and stock corrections are included automatically. Calculated closing = opening + added − sold − wastage ± corrections. The calculated closing carries forward as the next recorded date's opening. Physical closing is kept separately to show any difference.
    <div class="cards"><div class="card"><div class="muted">Sales for selected date</div><div class="metric" id="dailyStockSalesTotal">KSh 0</div></div><div class="card"><div class="muted">Quantity sold</div><div class="metric" id="dailyStockSoldTotal">0</div></div><div class="card"><div class="muted">Stock received</div><div class="metric" id="dailyStockAddedTotal">0</div></div></div></p>
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
