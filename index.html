@@ -1350,7 +1350,8 @@ window.moveDailySalesDate=async()=>{
  if(from===null)return;
  const to=prompt('Move those sales to which date? (YYYY-MM-DD)','2026-10-02');
  if(to===null)return;
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(from)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(to)||from===to)return alert('Enter two different dates in YYYY-MM-DD format.');
+ const validDate=v=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const d=new Date(v+'T12:00:00Z');return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===v;};
+ if(!validDate(from)||!validDate(to)||from===to)return alert('Enter two different valid dates in YYYY-MM-DD format.');
  if(!confirm('Move every saved sale on '+from+' to '+to+', including matching sale movement history? Quantities, prices, payments and current stock will remain unchanged.'))return;
  const {data,error}=await sb.rpc('club_neon_move_daily_sales_date',{p_business:bid,p_from_date:from,p_to_date:to});
  if(error)return alert(error.message);
