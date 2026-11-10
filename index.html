@@ -1266,7 +1266,7 @@ window.changeCollectionDate=async function(){
  await loadDailyStockTakes(true);
 };
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;render();await loadManualBalance(true);await loadDailyStockTakes(true);};
-window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
+window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='correction'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.filterStockTakeProducts=function(silent=false){
  const select=$('stockTakeProduct'),search=$('stockTakeProductSearch');
  if(!select)return;
@@ -1280,7 +1280,7 @@ window.filterStockTakeProducts=function(silent=false){
  else if(matches.length)select.value=matches[0].id;
  if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
 };
-window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold).toFixed(3);$('stNote').value='';}};
+window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold+v.adjustment).toFixed(3);$('stNote').value='';}};
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
  const day=$('stockTakeDate').value||date(new Date());
@@ -1341,9 +1341,9 @@ window.loadDailyStockTakes=async function(silent=false){
   const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
   const sold=x?Number(x.sold_qty||0):figures.sold;
   const added=x?Number(x.stock_added||0):figures.added;
-  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.closing_qty||0):Math.max(0,Number(p.stock||0)-added+sold);
+  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.closing_qty||0):Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
   const wastage=x?Number(x.wastage_qty||0):0;
-  const adjustment=Number(x?.stock_adjustment_qty||0);
+  const adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
   const expected=opening+added-sold-wastage+adjustment;
   const missing=x?Math.max(0,sold-actualQty):0;
   const value=actualValue+missing*Number(p.selling_price||0);
