@@ -409,7 +409,16 @@ let cloudChangesPending=false;
 
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
-const date=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:'Africa/Nairobi'});
+const date=d=>{
+ if(!d)return '';
+ const value=String(d);
+ if(/^\\d{4}-\\d{2}-\\d{2}$/.test(value))return value;
+ const parsed=new Date(d);
+ if(Number.isNaN(parsed.getTime()))return '';
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(parsed);
+ const part=type=>parts.find(x=>x.type===type)?.value||'';
+ return part('year')+'-'+part('month')+'-'+part('day');
+};
 function formatDate(value){
  if(!value)return '';
  let d;
