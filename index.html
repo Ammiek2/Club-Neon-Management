@@ -405,6 +405,16 @@ let cloudChangesPending=false;
 const $=id=>document.getElementById(id);
 const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
 const date=d=>new Date(d).toLocaleDateString('en-CA',{timeZone:'Africa/Nairobi'});
+function formatDate(value){
+ if(!value)return '';
+ let d;
+ if(typeof value==='string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) d=new Date(value+'T12:00:00+03:00');
+ else d=new Date(value);
+ if(Number.isNaN(d.getTime()))return String(value);
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Africa/Nairobi',month:'short',day:'numeric',year:'numeric'}).formatToParts(d);
+ const part=type=>parts.find(x=>x.type===type)?.value||'';
+ return part('month')+'/'+part('day')+'/'+part('year');
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 function notify(message,error=false){
@@ -743,7 +753,7 @@ window.renderLegacyStockExpenses=function(){
   .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
  const total=rows.reduce((sum,x)=>sum+Number(x.amount||0),0);
  $('legacyStockExpenseTable').innerHTML=rows.length
-  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleDateString('en-KE',{timeZone:'Africa/Nairobi'})+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteLegacyStockExpense(\''+x.id+'\')">Delete</button></td></tr>'))
+  ?tbl(['Date','Supplier / description','Amount','Payment','Action'],rows.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.description||'Stock purchase')+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.payment_method||'—')+'</td><td><button class="secondary small" onclick="startEditLegacyStockExpense(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteLegacyStockExpense(\''+x.id+'\')">Delete</button></td></tr>'))
   :'<p class="hint">No previous Stock-category expense entries for '+esc(day)+'.</p>';
  $('legacyStockExpenseTotal').textContent='Total from previous entries: '+money(total);
 };
@@ -974,7 +984,7 @@ function render(){
  const e=ee.reduce((a,x)=>a+Number(x.amount||0),0);
 
  if(role==='admin'){
-  $('today').textContent='Selected collection date: '+new Date(day+'T12:00:00').toLocaleDateString('en-KE',{dateStyle:'full'});
+  $('today').textContent='Selected collection date: '+formatDate(day);
   if(!$('collectionDate').value)$('collectionDate').value=today;
   if(!$('balanceDate').value)$('balanceDate').value=day;
   if(!$('stockTakeDate').value)$('stockTakeDate').value=day;
@@ -988,7 +998,7 @@ function render(){
   $('dg').textContent=money(s-c);
   $('dn').textContent=money(s-c-e);
   $('recent').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
-   ss.slice(0,10).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td><td>${role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'—'}</td></tr>`));
+   ss.slice(0,10).map(x=>`<tr><td>${formatDate(x.created_at)}</td><td>${esc(x.product_name)}</td><td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td><td>${esc(x.staff_name)}</td><td>${role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'—'}</td></tr>`));
  }
 
  const activeProducts=products.filter(p=>p.active!==false);
@@ -1056,7 +1066,7 @@ function render(){
 
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],
  salesForDay.map(x=>`<tr>
- <td>${new Date(x.created_at).toLocaleString()}</td><td>${esc(x.product_name)}</td>
+ <td>${formatDate(x.created_at)}</td><td>${esc(x.product_name)}</td>
  <td>${x.quantity}</td><td>${money(x.total)}</td><td>${esc(x.payment_method)}</td>
  <td>${esc(x.staff_name)}</td>
  <td><button class="secondary small" onclick="editSale('${x.id}')">Edit</button>
@@ -1064,7 +1074,7 @@ function render(){
 
  if(role==='admin'){
   $('expenseTable').innerHTML=tbl(['Date','Description','Category','Amount','Payment','Actions'],
-  expenses.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))&&String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  expenses.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))&&String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).map(x=>`<tr><td>${formatDate(x.created_at)}</td>
   <td>${esc(x.description)}</td><td>${esc(x.category)}</td><td>${money(x.amount)}</td>
   <td>${esc(x.payment_method)}</td><td>
   <button class="secondary small" onclick="editExpense('${x.id}')">Edit</button>
@@ -1081,7 +1091,7 @@ function render(){
  if(role==='admin'){
   $('stockHistoryPanel').style.display='';
   $('stockHistory').innerHTML=tbl(['Date','Product','Movement','Qty','Cost','Actions'],
-  moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString()}</td>
+  moves.filter(x=>date(x.created_at)===(selectedCollectionDate||date(new Date()))).map(x=>`<tr><td>${formatDate(x.created_at)}</td>
   <td>${esc(products.find(p=>p.id===x.product_id)?.name||'Product')}</td>
   <td>${String(x.movement_type).toLowerCase()==='stock_in'?'STOCK IN':String(x.movement_type).toLowerCase()==='sale'?'STOCK OUT • SALE':String(x.movement_type).toLowerCase()==='sale_adjustment'?'SALE RETURN / CORRECTION':String(x.movement_type).toLowerCase()==='correction'?'STOCK CORRECTION':esc(x.movement_type)}</td><td>${x.quantity}</td><td>${money(x.unit_cost)}</td><td>${String(x.movement_type).toLowerCase()==='stock_in'?'<button class="secondary small" onclick="editStockInMovement(\''+x.id+'\')">Edit</button> <button class="danger small" onclick="deleteStockInMovement(\''+x.id+'\')">Delete</button>':'—'}</td></tr>`));
  }else{
@@ -1178,7 +1188,7 @@ window.loadDailyStockTakes=async function(silent=false){
   return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
-  ...ds.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
+  ...ds.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
@@ -1675,12 +1685,7 @@ async function collectReportData(){
  const namedTakeRows=takeRows.map(x=>({...x,product_name:productName(x.product_id)}));
  return {from,to,type,saleRows,expenseRows,moveRows:namedMoveRows,takeRows:namedTakeRows,inferred,balanceRows,stockTotal,salesTotal,costTotal,expenseTotal,gross:salesTotal-costTotal,net:salesTotal-costTotal-expenseTotal,balanceAfterStock:salesTotal-expenseTotal};
 }
-function reportDate(value){
- if(!value)return '';
- const d=new Date(value);
- if(Number.isNaN(d.getTime()))return String(value).slice(0,10);
- return new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Nairobi',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
-}
+function reportDate(value){return formatDate(value);}
 function csvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
 function reportRows(r){
  const rows=[['Record type','Date','Description / product','Category / movement','Quantity','Unit price (KSh)','Amount (KSh)','Cost (KSh)','Payment method','Staff / entered by','Notes']];
