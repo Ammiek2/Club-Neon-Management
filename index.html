@@ -188,6 +188,11 @@ main{padding:10px}
    <div class="card"><div class="muted">Gross profit</div><div class="metric" id="dg">KSh 0</div></div>
    <div class="card"><div class="muted">Net result</div><div class="metric" id="dn">KSh 0</div></div>
   </div>
+  <div class="panel" id="dailyRecordsPanel">
+   <h2>Daily Records — all dates</h2>
+   <p class="hint">Jump to any date with saved sales, stock-count sales or expenses. Totals include saved sales and unallocated quantities from daily stock takes; stock purchases are excluded from ordinary expenses.</p>
+   <div id="dailyRecordsTable" class="tablewrap"></div>
+  </div>
   <div class="panel" style="margin-top:14px">
    <h2>Daily cash count (Admin only)</h2>
    <p class="hint">Enter the actual cash and M-Pesa counted. Stock purchases are recorded item by item in Stock-in and are not deducted again here.</p>
@@ -393,7 +398,7 @@ const sb=createClient(
 );
 
 let bid=null,activeBusinessName='Club Neon',products=[],sales=[],expenses=[],staff=[],moves=[];
-let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[];
+let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[],dailyRecordsTakes=[];
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[],pendingStaffBusinessName='Club Neon';
@@ -686,8 +691,11 @@ window.refreshAll=async(silent=false)=>{
 
  if(role==='admin'){
   [products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
+  const historyTakes=await sb.from('daily_stock_takes').select('product_id,collection_date,sold_qty').eq('business_id',bid).order('collection_date',{ascending:false}).range(0,9999);
+  dailyRecordsTakes=historyTakes.error?[]:(historyTakes.data||[]);
   await loadManualBalance(true);
  }else{
+  dailyRecordsTakes=[];
   // Staff cannot read the admin-only staff directory. Skip it so it cannot block shared stock.
   [products,sales,moves]=res.map(x=>x.data||[]);
   expenses=[];
@@ -1098,8 +1106,34 @@ function render(){
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
  }
+ if(role==='admin')renderDailyRecords();
 }
 
+function renderDailyRecords(){
+ const dates=new Set();
+ sales.forEach(x=>dates.add(date(x.created_at)));
+ expenses.filter(x=>String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).forEach(x=>dates.add(date(x.created_at)));
+ dailyRecordsTakes.forEach(x=>dates.add(x.collection_date));
+ const rows=[...dates].filter(Boolean).sort((a,b)=>b.localeCompare(a)).map(day=>{
+  const daySales=sales.filter(x=>date(x.created_at)===day);
+  let salesTotal=daySales.reduce((n,x)=>n+Number(x.total||0),0);
+  dailyRecordsTakes.filter(x=>x.collection_date===day).forEach(t=>{
+   const already=daySales.filter(x=>x.product_id===t.product_id).reduce((n,x)=>n+Number(x.quantity||0),0);
+   const missing=Math.max(0,Number(t.sold_qty||0)-already);
+   const product=products.find(p=>p.id===t.product_id);
+   if(missing>0&&product)salesTotal+=missing*Number(product.selling_price||0);
+  });
+  const expenseTotal=expenses.filter(x=>date(x.created_at)===day&&String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).reduce((n,x)=>n+Number(x.amount||0),0);
+  return {day,salesTotal,expenseTotal};
+ });
+ $('dailyRecordsTable').innerHTML=rows.length?tbl(['Date','Total sales','Total expenses','Sales − expenses','Open'],rows.map(x=>'<tr><td>'+formatDate(x.day)+'</td><td>'+money(x.salesTotal)+'</td><td>'+money(x.expenseTotal)+'</td><td>'+money(x.salesTotal-x.expenseTotal)+'</td><td><button class="secondary small" onclick="openDailyRecord(\''+x.day+'\')">Open date</button></td></tr>')):'<p class="hint">No saved sales, stock-take or expense records yet.</p>';
+}
+window.openDailyRecord=async function(day){
+ $('collectionDate').value=day;
+ await window.changeCollectionDate();
+ window.go('dashboard');
+ $('dailyRecordsPanel')?.scrollIntoView({behavior:'smooth',block:'start'});
+};
 
 window.changeCollectionDate=async function(){
  const day=$('collectionDate').value||date(new Date());
@@ -1741,7 +1775,7 @@ function download(data,name,type){
  setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 
-function go(p){
+window.go=function(p){
  if(role==='staff'&&!['sales','stock'].includes(p))return;
  document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
  $(p).classList.remove('hidden');
