@@ -212,6 +212,22 @@ main{padding:10px}
    <button style="margin-top:12px" onclick="saveManualBalance()">Save daily balances</button>
    <p class="hint" id="balanceStatus">No manual balance loaded.</p>
   </div>
+  <div class="panel" id="cashVariancePanel">
+   <h2>Cashier shortage / excess (Admin only)</h2>
+   <p class="hint">Record money expected from a cashier against the amount actually handed in. A shortage is shown separately from sales and expenses; it never changes drink sales, stock or profit figures.</p>
+   <div class="grid">
+    <div class="field"><label for="cashVarianceDate">Date</label><input id="cashVarianceDate" type="date" onchange="renderCashVariances()"></div>
+    <div class="field"><label for="cashVarianceStaff">Cashier</label><select id="cashVarianceStaff"><option value="">Choose cashier</option></select></div>
+    <div class="field"><label for="cashVarianceExpected">Expected cash (KSh)</label><input id="cashVarianceExpected" type="number" min="0" step=".01" placeholder="e.g. 5000" oninput="updateCashVariancePreview()"></div>
+    <div class="field"><label for="cashVarianceActual">Actual cash received (KSh)</label><input id="cashVarianceActual" type="number" min="0" step=".01" placeholder="e.g. 4500" oninput="updateCashVariancePreview()"></div>
+    <div class="field"><label for="cashVarianceNote">Explanation / note</label><input id="cashVarianceNote" type="text" placeholder="e.g. Cash short at shift closing"></div>
+   </div>
+   <p class="hint" id="cashVariancePreview">Enter expected and actual cash to calculate the difference.</p>
+   <div class="actions"><button onclick="saveCashVariance()" id="cashVarianceSaveButton">Save cash variance</button><button class="secondary" onclick="clearCashVarianceForm()">Clear form</button></div>
+   <p class="hint" id="cashVarianceStatus">No cash variance selected for editing.</p>
+   <h3>Cashier cash records for selected date</h3>
+   <div id="cashVarianceTable" class="tablewrap"></div>
+  </div>
   <div class="panel">
    <h2>Stock purchases for selected date</h2>
    <p class="hint">Itemised from saved Stock-in entries. Each line shows the registered product name, quantity bought, buying cost per unit and total cost. Use Edit to enter or correct a missing buying cost.</p>
@@ -398,7 +414,8 @@ const sb=createClient(
 );
 
 let bid=null,activeBusinessName='Club Neon',products=[],sales=[],expenses=[],staff=[],moves=[];
-let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[],dailyRecordsTakes=[];
+let dailyBalance=null, dailyStockTakes=[],dailyStockTakeFlags=[],dailyRecordsTakes=[],cashVariances=[];
+let editingCashVarianceId=null;
 let selectedCollectionDate=null;
 let role=null,currentStaffId=null,currentStaffName=null;
 let staffDirectory=[],pendingStaffBusinessName='Club Neon';
@@ -662,7 +679,7 @@ window.logout=async()=>{
  stopLiveSync();
  try{await sb.rpc('club_neon_pin_logout');}catch(e){}
  role=null;currentStaffId=null;currentStaffName=null;bid=null;activeBusinessName='Club Neon';
- products=[];sales=[];expenses=[];staff=[];moves=[];
+ products=[];sales=[];expenses=[];staff=[];moves=[];cashVariances=[];editingCashVarianceId=null;
  $('mainNav').classList.add('hidden');
  $('appMain').classList.add('hidden');
  $('loginScreen').classList.remove('hidden');
@@ -681,7 +698,7 @@ window.refreshAll=async(silent=false)=>{
  if(stockSync.error){$('message').textContent='Stock reconciliation notice: '+stockSync.error.message;}
 
  const names=role==='admin'
- ?['products','sales','expenses','staff','stock_movements','daily_payment_balances']
+ ?['products','sales','expenses','staff','stock_movements','cashier_cash_variances']
  :['products','sales','stock_movements'];
 
  const res=await Promise.all(names.map(t=>
@@ -699,7 +716,7 @@ window.refreshAll=async(silent=false)=>{
  }
 
  if(role==='admin'){
-  [products,sales,expenses,staff,moves]=res.map(x=>x.data||[]);
+  [products,sales,expenses,staff,moves,cashVariances]=res.map(x=>x.data||[]);
   const historyTakes=await sb.from('daily_stock_takes').select('product_id,collection_date,sold_qty').eq('business_id',bid).order('collection_date',{ascending:false}).range(0,9999);
   dailyRecordsTakes=historyTakes.error?[]:(historyTakes.data||[]);
   await loadManualBalance(true);
@@ -709,6 +726,7 @@ window.refreshAll=async(silent=false)=>{
   [products,sales,moves]=res.map(x=>x.data||[]);
   expenses=[];
   staff=[];
+  cashVariances=[];
  }
 
  render();
@@ -724,7 +742,7 @@ function startLiveSync(){
  stopLiveSync();
  if(!bid||!role)return;
  const tables=role==='admin'
-  ?['products','sales','expenses','staff','stock_movements','daily_stock_takes','daily_payment_balances']
+  ?['products','sales','expenses','staff','stock_movements','daily_stock_takes','daily_payment_balances','cashier_cash_variances']
   :['products','sales','stock_movements','daily_stock_takes'];
  let channel=sb.channel('club-neon-live-'+bid+'-'+role);
  for(const table of tables){
@@ -895,6 +913,96 @@ window.saveManualBalance=async function(){
  notify('Daily cash and M-Pesa balances saved.');
 };
 
+
+function cashVarianceLabel(value){
+ const n=Number(value||0);
+ if(n>0)return 'Short '+money(n);
+ if(n<0)return 'Excess '+money(Math.abs(n));
+ return 'Balanced';
+}
+window.updateCashVariancePreview=function(){
+ const expected=$('cashVarianceExpected')?.value,actual=$('cashVarianceActual')?.value;
+ if(expected===''||actual===''){$('cashVariancePreview').textContent='Enter expected and actual cash to calculate the difference.';return;}
+ const diff=Number(expected)-Number(actual);
+ $('cashVariancePreview').textContent=diff>0?'Cash shortage: '+money(diff):diff<0?'Cash excess: '+money(Math.abs(diff)):'Cash balanced: no difference.';
+};
+window.clearCashVarianceForm=function(){
+ editingCashVarianceId=null;
+ $('cashVarianceDate').value=selectedCollectionDate||$('collectionDate')?.value||date(new Date());
+ $('cashVarianceStaff').value='';
+ $('cashVarianceExpected').value='';
+ $('cashVarianceActual').value='';
+ $('cashVarianceNote').value='';
+ $('cashVarianceSaveButton').textContent='Save cash variance';
+ $('cashVarianceStatus').textContent='Ready for a new cash variance record.';
+ updateCashVariancePreview();
+};
+function renderCashVariances(){
+ if(role!=='admin')return;
+ const day=$('cashVarianceDate')?.value||selectedCollectionDate||date(new Date());
+ const activeStaff=staff.filter(x=>x.active!==false);
+ const selected=$('cashVarianceStaff')?.value||'';
+ $('cashVarianceStaff').innerHTML='<option value="">Choose cashier</option><option value="owner">Owner</option>'+activeStaff.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
+ if(selected)$('cashVarianceStaff').value=selected;
+ const rows=cashVariances.filter(x=>x.variance_date===day).sort((a,b)=>String(a.staff_name).localeCompare(String(b.staff_name)));
+ $('cashVarianceTable').innerHTML=tbl(['Cashier','Expected','Actual received','Difference','Note','Actions'],rows.map(x=>{
+  const diff=Number(x.difference_amount||0);
+  const label=diff>0?'SHORT '+money(diff):diff<0?'EXCESS '+money(Math.abs(diff)):'BALANCED';
+  return `<tr><td>${esc(x.staff_name)}</td><td>${money(x.expected_amount)}</td><td>${money(x.actual_amount)}</td><td>${label}</td><td>${esc(x.note||'')}</td><td><button class="secondary small" onclick="editCashVariance('${x.id}')">Edit</button> <button class="danger small" onclick="deleteCashVariance('${x.id}')">Delete</button></td></tr>`;
+ }));
+}
+window.editCashVariance=function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=cashVariances.find(v=>v.id===id);if(!x)return;
+ editingCashVarianceId=id;
+ $('cashVarianceDate').value=x.variance_date;
+ renderCashVariances();
+ $('cashVarianceStaff').value=x.staff_id||'owner';
+ if(!$('cashVarianceStaff').value){
+  const opt=document.createElement('option');opt.value=x.staff_id||'owner';opt.textContent=x.staff_name;opt.selected=true;$('cashVarianceStaff').appendChild(opt);
+ }
+ $('cashVarianceExpected').value=x.expected_amount;
+ $('cashVarianceActual').value=x.actual_amount;
+ $('cashVarianceNote').value=x.note||'';
+ $('cashVarianceSaveButton').textContent='Update cash variance';
+ $('cashVarianceStatus').textContent='Editing '+x.staff_name+' — '+formatDate(x.variance_date)+'.';
+ updateCashVariancePreview();
+ $('cashVariancePanel').scrollIntoView({behavior:'smooth',block:'center'});
+};
+window.saveCashVariance=async function(){
+ if(role!=='admin')return alert('Admin access only.');
+ const day=$('cashVarianceDate').value,staffValue=$('cashVarianceStaff').value;
+ const expected=Number($('cashVarianceExpected').value),actual=Number($('cashVarianceActual').value);
+ if(!day||!staffValue||$('cashVarianceExpected').value===''||$('cashVarianceActual').value===''||!Number.isFinite(expected)||!Number.isFinite(actual)||expected<0||actual<0)
+  return alert('Choose the date and cashier, then enter valid expected and actual cash amounts. Zero is allowed.');
+ const staffRow=staff.find(x=>x.id===staffValue);
+ const staffName=staffValue==='owner'?'Owner':(staffRow?.name||'');
+ if(!staffName)return alert('Select a valid cashier.');
+ const payload={business_id:bid,variance_date:day,staff_id:staffValue==='owner'?null:staffValue,staff_name:staffName,expected_amount:expected,actual_amount:actual,note:$('cashVarianceNote').value.trim()||null};
+ let result;
+ if(editingCashVarianceId)result=await sb.from('cashier_cash_variances').update(payload).eq('id',editingCashVarianceId).eq('business_id',bid);
+ else result=await sb.from('cashier_cash_variances').insert(payload);
+ if(result.error)return alert('Could not save cash variance: '+result.error.message);
+ const {data,error}=await sb.from('cashier_cash_variances').select('*').eq('business_id',bid).order('variance_date',{ascending:false}).range(0,4999);
+ if(error)return alert('Saved, but could not reload cash variance history: '+error.message);
+ cashVariances=data||[];
+ notify(editingCashVarianceId?'Cash variance updated.':'Cash variance saved.');
+ clearCashVarianceForm();
+ $('cashVarianceDate').value=day;
+ renderCashVariances();
+ renderDailyRecords();
+};
+window.deleteCashVariance=async function(id){
+ if(role!=='admin')return alert('Admin access only.');
+ const x=cashVariances.find(v=>v.id===id);if(!x)return;
+ if(!confirm('Delete the cash variance for '+x.staff_name+' on '+formatDate(x.variance_date)+'?'))return;
+ const {error}=await sb.from('cashier_cash_variances').delete().eq('id',id).eq('business_id',bid);
+ if(error)return alert('Could not delete cash variance: '+error.message);
+ cashVariances=cashVariances.filter(v=>v.id!==id);
+ if(editingCashVarianceId===id)clearCashVarianceForm();
+ renderCashVariances();renderDailyRecords();notify('Cash variance deleted.');
+};
+
 function stockSalesForDate(day,stockRows=dailyStockTakes){
  const daySales=sales.filter(x=>date(x.created_at)===day);
  const actualSales=daySales.reduce((a,x)=>a+Number(x.total||0),0);
@@ -1004,6 +1112,7 @@ function render(){
   $('today').textContent='Selected collection date: '+formatDate(day);
   if(!$('collectionDate').value)$('collectionDate').value=today;
   if(!$('balanceDate').value)$('balanceDate').value=day;
+  if($('cashVarianceDate')&&!$('cashVarianceDate').value)$('cashVarianceDate').value=day;
   if(!$('stockTakeDate').value)$('stockTakeDate').value=day;
   $('ds').textContent=money(s);
   $('cashToday').textContent=money(cashToday);
@@ -1115,7 +1224,7 @@ function render(){
   $('stockHistoryPanel').style.display='none';
   $('stockHistory').innerHTML='';
  }
- if(role==='admin')renderDailyRecords();
+ if(role==='admin'){renderDailyRecords();renderCashVariances();}
 }
 
 function renderDailyRecords(){
@@ -1123,6 +1232,7 @@ function renderDailyRecords(){
  sales.forEach(x=>dates.add(date(x.created_at)));
  expenses.filter(x=>String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).forEach(x=>dates.add(date(x.created_at)));
  dailyRecordsTakes.forEach(x=>dates.add(x.collection_date));
+ cashVariances.forEach(x=>dates.add(x.variance_date));
  const rows=[...dates].filter(Boolean).sort((a,b)=>b.localeCompare(a)).map(day=>{
   const daySales=sales.filter(x=>date(x.created_at)===day);
   let salesTotal=daySales.reduce((n,x)=>n+Number(x.total||0),0);
@@ -1135,7 +1245,7 @@ function renderDailyRecords(){
   const expenseTotal=expenses.filter(x=>date(x.created_at)===day&&String(x.category||'').toLowerCase()!=='stock'&&!String(x.category||'').toLowerCase().startsWith('stock (moved')).reduce((n,x)=>n+Number(x.amount||0),0);
   return {day,salesTotal,expenseTotal};
  });
- $('dailyRecordsTable').innerHTML=rows.length?tbl(['Date','Total sales','Total expenses','Sales − expenses','Open'],rows.map(x=>'<tr><td>'+formatDate(x.day)+'</td><td>'+money(x.salesTotal)+'</td><td>'+money(x.expenseTotal)+'</td><td>'+money(x.salesTotal-x.expenseTotal)+'</td><td><button class="secondary small" onclick="openDailyRecord(\''+x.day+'\')">Open date</button></td></tr>')):'<p class="hint">No saved sales, stock-take or expense records yet.</p>';
+ $('dailyRecordsTable').innerHTML=rows.length?tbl(['Date','Total sales','Total expenses','Sales − expenses','Cash variance','Open'],rows.map(x=>'<tr><td>'+formatDate(x.day)+'</td><td>'+money(x.salesTotal)+'</td><td>'+money(x.expenseTotal)+'</td><td>'+money(x.salesTotal-x.expenseTotal)+'</td><td>'+cashVarianceLabel(cashVariances.filter(v=>v.variance_date===x.day).reduce((n,v)=>n+Number(v.difference_amount||0),0))+'</td><td><button class="secondary small" onclick="openDailyRecord(\''+x.day+'\')">Open date</button></td></tr>')):'<p class="hint">No saved sales, stock-take or expense records yet.</p>';
 }
 window.openDailyRecord=async function(day){
  $('collectionDate').value=day;
@@ -1149,6 +1259,7 @@ window.changeCollectionDate=async function(){
  selectedCollectionDate=day;
  if($('legacyStockDate')&&!window.editingLegacyStockExpenseId)$('legacyStockDate').value=day;
  if($('balanceDate'))$('balanceDate').value=day;
+ if($('cashVarianceDate'))$('cashVarianceDate').value=day;
  if($('stockTakeDate'))$('stockTakeDate').value=day;
  render();
  await loadManualBalance(true);
