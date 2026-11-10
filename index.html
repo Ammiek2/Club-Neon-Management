@@ -13,7 +13,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
 :root{--bg:#0c1118;--p:#151e29;--p2:#1d2937;--line:#2b3949;--txt:#edf3f8;--muted:#9aabba;--gold:#f4bd42;--green:#36c98b;--red:#ff6b6b}
-.issue-flagged td{background:rgba(244,189,66,.15);border-bottom-color:#806324}.issue-resolved td{background:rgba(54,201,139,.08)}.issue-label{font-weight:800;color:#ffd36a}.resolved-label{font-weight:800;color:#36c98b}
+.issue-flagged td{background:rgba(244,189,66,.15);border-bottom-color:#806324}
+.sales-notes-panel{border:1px solid rgba(244,189,66,.45);background:linear-gradient(135deg,rgba(244,189,66,.07),rgba(21,30,41,.96))}.sales-note-open td{background:rgba(244,189,66,.13);border-bottom-color:#806324}.sales-note-resolved td{background:rgba(54,201,139,.10)}.sales-note-tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(244,189,66,.18);color:#ffd36a}.sales-note-tag.resolved{background:rgba(54,201,139,.16);color:#54dfa5}.issue-resolved td{background:rgba(54,201,139,.08)}.issue-label{font-weight:800;color:#ffd36a}.resolved-label{font-weight:800;color:#36c98b}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--txt);font:15px system-ui}
 header{padding:14px 18px;background:#101923;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
@@ -277,7 +278,7 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Every sale with a note is listed here across all dates. Amber means still needs attention; green means marked resolved. Use Edit to correct the sale note, or mark the issue resolved when handled.</p><div id="salesNotesTracker"></div></div></div>
  </section>
 
  <section id="stock" class="page hidden">
@@ -1346,6 +1347,14 @@ window.loadDailyStockTakes=async function(silent=false){
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Expected close','Physical close','Difference','Sales value','Unrecorded qty','Live stock now','Note','Actions'],rows);
+ const notedSales=sales.filter(x=>String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+ $('salesNotesTracker').innerHTML=notedSales.length
+  ?tbl(['Date','Product','Qty','Staff','Note / issue','Status','Action'],notedSales.map(x=>{
+    const note=String(x.note||'').trim(),resolved=/^\\[RESOLVED\\]\\s*/i.test(note),clean=note.replace(/^\\[RESOLVED\\]\\s*/i,'');
+    return '<tr class="'+(resolved?'sales-note-resolved':'sales-note-open')+'"><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+Number(x.quantity||0).toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+esc(x.staff_name||'—')+'</td><td>'+esc(clean)+'</td><td><span class="sales-note-tag '+(resolved?'resolved':'')+'">'+(resolved?'RESOLVED':'NEEDS ATTENTION')+'</span></td><td>'+(resolved?'<button class="secondary small" onclick="setSaleNoteStatus(\\''+x.id+'\\',false)">Reopen</button>':'<button class="small" onclick="setSaleNoteStatus(\\''+x.id+'\\',true)">Mark resolved</button>')+' <button class="secondary small" onclick="editSale(\\''+x.id+'\\')">Edit sale</button></td></tr>';
+   }))
+  :'<p class="hint">No sales notes have been recorded yet. Add a note while collecting a sale and it will appear here automatically.</p>';
+
  $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
  if(($('stockTakePeriod')?.value||'daily')!=='daily')await loadPeriodStockTakeSummary();
@@ -1429,6 +1438,20 @@ window.recordSale=async()=>{
  else{$('sq').value=1;$('snote').value='';updateSalePrice();$('smsg').textContent='Sale saved for '+formatDate(day)+'.';notify('Sale saved for '+formatDate(day)+'.');await refreshAll();}
 };
 
+window.setSaleNoteStatus=async function(id,resolved){
+ const x=sales.find(s=>s.id===id);if(!x)return;
+ const current=String(x.note||'').replace(/^\\[RESOLVED\\]\\s*/i,'').trim();
+ const note=resolved?'[RESOLVED] '+current:current;
+ if(resolved&&!confirm('Mark this sales note as resolved? The original note will remain visible in the tracker.'))return;
+ const {error}=await sb.rpc('club_neon_edit_sale',{
+  p_business:bid,p_sale_id:id,p_product:x.product_id,p_quantity:Number(x.quantity||0),
+  p_unit_price:Number(x.unit_price||0),p_payment:x.payment_method,
+  p_staff_id:x.staff_id||null,p_staff_name:x.staff_name||'Owner',p_note:note||null
+ });
+ if(error)return alert('Could not update note status: '+error.message);
+ notify(resolved?'Sales note marked resolved.':'Sales note reopened.');
+ await refreshAll();
+};
 window.editSale=async id=>{
  const x=sales.find(s=>s.id===id);if(!x)return;
  const active=products.filter(p=>p.active!==false);
