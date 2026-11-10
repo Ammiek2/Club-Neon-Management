@@ -1346,21 +1346,15 @@ window.editSale=async id=>{
 
 window.moveDailySalesDate=async()=>{
  if(role!=='admin')return alert('Admin access only. Unlock Club Neon as administrator.');
- const from=prompt('Move all saved sales from which date? (YYYY-MM-DD)',selectedCollectionDate||'2026-11-10');
- if(from===null)return;
- const to=prompt('Move those sales to which date? (YYYY-MM-DD)','2026-10-02');
- if(to===null)return;
- const parseDate=v=>{const parts=String(v||'').trim().split('-').map(Number);if(parts.length!==3||parts.some(n=>!Number.isInteger(n)))return null;const [y,m,d]=parts;if(y<2000||y>2100||m<1||m>12||d<1||d>31)return null;const check=new Date(Date.UTC(y,m-1,d));if(check.getUTCFullYear()!==y||check.getUTCMonth()!==m-1||check.getUTCDate()!==d)return null;return [String(y).padStart(4,'0'),String(m).padStart(2,'0'),String(d).padStart(2,'0')].join('-');};
- const fromDate=parseDate(from),toDate=parseDate(to);
- if(!fromDate||!toDate||fromDate===toDate)return alert('Enter two different dates in YYYY-MM-DD format. Example: 2026-11-10 and 2026-10-02.');
- if(!confirm('Move every saved sale on '+fromDate+' to '+toDate+', including matching sale movement history? Quantities, prices, payments and current stock will remain unchanged.'))return;
+ const fromDate='2026-11-10',toDate='2026-10-02';
+ if(!confirm('Move all saved sales dated Nov/10/2026 to Oct/2/2026, including matching sale movement history? Quantities, prices, payments and current stock will remain unchanged.'))return;
  const {data,error}=await sb.rpc('club_neon_move_daily_sales_date',{p_business:bid,p_from_date:fromDate,p_to_date:toDate});
  if(error)return alert(error.message);
  const moved=Number(data?.sales_moved||0);
- if(!moved)return alert('No saved sales were found on '+fromDate+'. Nothing was changed.');
- $('collectionDate').value=to; selectedCollectionDate=to;
+ if(!moved)return alert('No saved sales were found on Nov/10/2026. Nothing was changed.');
+ $('collectionDate').value=toDate; selectedCollectionDate=toDate;
  await window.refreshAll();
- notify(moved+' sales and '+Number(data?.sale_movements_moved||0)+' matching sale movements moved to '+formatDate(to)+'. Quantities, amounts and stock balances were preserved.');
+ notify(moved+' sales and '+Number(data?.sale_movements_moved||0)+' matching sale movements moved to Oct/2/2026. Quantities, amounts and stock balances were preserved.');
 };
 window.deleteSale=async id=>{
  if(role!=='admin')return alert('Admin access only.');
