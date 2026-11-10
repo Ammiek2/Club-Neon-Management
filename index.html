@@ -55,7 +55,7 @@ th{color:var(--muted)}
 .loginbox .secondary{margin-top:8px}
 .loginbox input,.loginbox select{margin:5px 0 12px}
 .loginmessage{min-height:22px;color:var(--red);font-size:13px;white-space:pre-wrap}
-.top-actions{display:flex;align-items:center;gap:8px}
+.top-actions{display:flex;align-items:center;gap:8px}.global-product-search{width:min(270px,34vw);display:flex;flex-direction:column;gap:3px}.global-product-search label{font-size:10px;color:var(--muted)}.global-product-search input{padding:7px 9px;font-size:13px}@media(max-width:800px){.global-product-search{width:min(210px,42vw)}header{gap:8px}.top-actions{gap:5px}}@media(max-width:480px){.global-product-search{width:145px}.global-product-search input{font-size:12px;padding:7px}}
 @media(max-width:800px){
 .layout{grid-template-columns:1fr}
 nav{display:flex;overflow:auto;position:sticky;top:65px;z-index:4;gap:4px}
@@ -155,6 +155,7 @@ main{padding:10px}
   <div class="muted">ONLINE BUSINESS MANAGER • KENYA</div>
  </div>
  <div class="top-actions">
+  <div class="global-product-search"><label for="appProductSearch">Quick product search</label><input id="appProductSearch" type="search" placeholder="Type any product name…" autocomplete="off" oninput="filterAppProducts()" onkeydown="if(event.key==='Enter')jumpToProductMatch()"></div>
   <span id="status" class="good">Locked</span>
   <button class="secondary small" id="manualRefreshButton" onclick="refreshAll()">Refresh</button>
   <button class="secondary small" onclick="logout()">Lock</button>
@@ -1556,6 +1557,44 @@ window.filterStockProducts=function(){
  const query=String(input?.value||'').trim().toLowerCase();
  const rows=$('stockTable')?.querySelectorAll('tbody tr')||[];
  rows.forEach(row=>{row.style.display=row.textContent.toLowerCase().includes(query)?'':'none';});
+};
+
+// One search field filters product selectors and every product-related record list
+// without changing dates, records, stock figures or other non-product sections.
+window.filterAppProducts=function(){
+ const value=String($('appProductSearch')?.value||'').trim();
+ ['saleProductSearch','stockTakeProductSearch','stockProductSearch'].forEach(id=>{
+  const input=$(id);if(input&&input.value!==value)input.value=value;
+ });
+ if($('sp'))window.filterSaleProducts(true);
+ if($('stockTakeProduct'))window.filterStockTakeProducts(true);
+ if($('stockTable'))window.filterStockProducts();
+ const query=value.toLocaleLowerCase();
+ const productTables=['salesTable','recent','stockHistory','dailyStockTakeTable','periodStockTakeTable','salesNotesTracker','productReport'];
+ productTables.forEach(id=>{
+  const table=$(id);
+  if(!table)return;
+  table.querySelectorAll('tbody tr').forEach(row=>{
+   row.style.display=!query||row.textContent.toLocaleLowerCase().includes(query)?'':'none';
+  });
+ });
+};
+window.jumpToProductMatch=function(){
+ const query=String($('appProductSearch')?.value||'').trim().toLocaleLowerCase();
+ if(!query)return;
+ const candidates=['stockTable','dailyStockTakeTable','periodStockTakeTable','salesTable','stockHistory','salesNotesTracker','recent','productReport'];
+ for(const id of candidates){
+  const root=$(id);if(!root)continue;
+  const row=[...root.querySelectorAll('tbody tr')].find(r=>r.style.display!=='none'&&r.textContent.toLocaleLowerCase().includes(query));
+  if(row){
+   const page=root.closest('.page');
+   if(page?.id&&page.classList.contains('hidden'))window.go(page.id);
+   row.scrollIntoView({behavior:'smooth',block:'center'});
+   row.style.outline='2px solid var(--gold)';
+   setTimeout(()=>{row.style.outline='';},1800);
+   return;
+  }
+ }
 };
 
 window.saveProduct=async()=>{
