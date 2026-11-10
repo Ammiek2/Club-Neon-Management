@@ -286,7 +286,7 @@ main{padding:10px}
   <h1>Stock & products</h1>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Daily stock take</h2>
-   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to highlight and save an issue; flagged products cannot be recorded until you resolve the marker. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
+   <p class="hint">Record each product's opening stock, stock received, sold quantity, wastage and actual physical closing count for the selected date. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to highlight and save an issue. Flags are visual reminders only and never block recording, editing, sales or stock updates. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
    <div class="grid">
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
@@ -1350,10 +1350,7 @@ window.loadDailyStockTakes=async function(silent=false){
   const value=actualValue+missing*Number(p.selling_price||0);
   const current=Number(p.stock||0);
   const physical=x?Number(x.physical_closing_qty??x.closing_qty??0):null;
-  const recordAction=flagged
-   ?'<button class="secondary small" disabled title="Resolve the explanation marker before recording">Resolve issue first</button>'
-   :x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`
-   :`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
+  const recordAction=x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`:`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
   const flagAction=flagged
    ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
    :flag
@@ -1382,8 +1379,6 @@ window.loadDailyStockTakes=async function(silent=false){
 };
 
 window.recordDailyStockTakeProduct=async function(pid){
- const flag=dailyStockTakeFlags.find(x=>x.product_id===pid&&x.status==='open');
- if(flag)return alert('Resolve the saved explanation marker before recording this product.');
  $('stockTakeProduct').value=pid;populateDailyStockTakeInputs();
  $('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});
  const p=products.find(x=>x.id===pid);
@@ -1411,14 +1406,12 @@ window.resolveDailyStockTakeIssue=async function(id){
  if(resolution===null)return;
  const {error}=await sb.from('daily_stock_take_flags').update({status:'resolved',resolution_note:resolution.trim()||null,resolved_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id).eq('business_id',bid);
  if(error)return alert('Could not resolve explanation marker: '+error.message);
- notify('Issue marked resolved. You can now record or edit this product.');
+ notify('Explanation marker marked resolved. Stock and sales figures were not changed.');
  await loadDailyStockTakes(true);
 };
 window.saveDailyStockTake=async function(){
  if(!role)return;
  const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value;
- const flag=dailyStockTakeFlags.find(x=>x.product_id===pid&&x.collection_date===day&&x.status==='open');
- if(flag)return alert('Resolve the explanation marker for this product before recording it.');
  const opening=Number($('stOpening').value),sold=Number($('stSold').value),wastage=Number($('stWastage').value),closing=Number($('stClosing').value);
  if(!day||!pid||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid quantities to 3 decimal places.');
  const wasSaved=dailyStockTakes.some(x=>x.product_id===pid&&x.collection_date===day);
