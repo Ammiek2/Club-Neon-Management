@@ -1350,8 +1350,8 @@ window.loadDailyStockTakes=async function(silent=false){
  const notedSales=sales.filter(x=>String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
  $('salesNotesTracker').innerHTML=notedSales.length
   ?tbl(['Date','Product','Qty','Staff','Note / issue','Status','Action'],notedSales.map(x=>{
-    const note=String(x.note||'').trim(),resolved=/^\\[RESOLVED\\]\\s*/i.test(note),clean=note.replace(/^\\[RESOLVED\\]\\s*/i,'');
-    return '<tr class="'+(resolved?'sales-note-resolved':'sales-note-open')+'"><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+Number(x.quantity||0).toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+esc(x.staff_name||'—')+'</td><td>'+esc(clean)+'</td><td><span class="sales-note-tag '+(resolved?'resolved':'')+'">'+(resolved?'RESOLVED':'NEEDS ATTENTION')+'</span></td><td>'+(resolved?'<button class="secondary small" onclick="setSaleNoteStatus(\\''+x.id+'\\',false)">Reopen</button>':'<button class="small" onclick="setSaleNoteStatus(\\''+x.id+'\\',true)">Mark resolved</button>')+' <button class="secondary small" onclick="editSale(\\''+x.id+'\\')">Edit sale</button></td></tr>';
+    const note=String(x.note||'').trim(),resolved=/^\[RESOLVED\]\s*/i.test(note),clean=note.replace(/^\[RESOLVED\]\s*/i,'');
+    return '<tr class="'+(resolved?'sales-note-resolved':'sales-note-open')+'"><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+Number(x.quantity||0).toLocaleString('en-KE',{maximumFractionDigits:3})+'</td><td>'+esc(x.staff_name||'—')+'</td><td>'+esc(clean)+'</td><td><span class="sales-note-tag '+(resolved?'resolved':'')+'">'+(resolved?'RESOLVED':'NEEDS ATTENTION')+'</span></td><td>'+(resolved?'<button class="secondary small" onclick="setSaleNoteStatus(\''+x.id+'\',false)">Reopen</button>':'<button class="small" onclick="setSaleNoteStatus(\''+x.id+'\',true)">Mark resolved</button>')+' <button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit sale</button></td></tr>';
    }))
   :'<p class="hint">No sales notes have been recorded yet. Add a note while collecting a sale and it will appear here automatically.</p>';
 
@@ -1440,7 +1440,7 @@ window.recordSale=async()=>{
 
 window.setSaleNoteStatus=async function(id,resolved){
  const x=sales.find(s=>s.id===id);if(!x)return;
- const current=String(x.note||'').replace(/^\\[RESOLVED\\]\\s*/i,'').trim();
+ const current=String(x.note||'').replace(/^\[RESOLVED\]\s*/i,'').trim();
  const note=resolved?'[RESOLVED] '+current:current;
  if(resolved&&!confirm('Mark this sales note as resolved? The original note will remain visible in the tracker.'))return;
  const {error}=await sb.rpc('club_neon_edit_sale',{
