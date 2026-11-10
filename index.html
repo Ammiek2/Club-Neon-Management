@@ -261,7 +261,7 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date.</p><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></div>
+  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></div>
  </section>
 
  <section id="stock" class="page hidden">
@@ -1344,6 +1344,22 @@ window.editSale=async id=>{
  else{notify('Sale EDITED. Stock and reports refreshed.');await refreshAll();}
 };
 
+window.moveDailySalesDate=async()=>{
+ if(role!=='admin')return alert('Admin access only. Unlock Club Neon as administrator.');
+ const from=prompt('Move all saved sales from which date? (YYYY-MM-DD)',selectedCollectionDate||'2026-11-10');
+ if(from===null)return;
+ const to=prompt('Move those sales to which date? (YYYY-MM-DD)','2026-10-02');
+ if(to===null)return;
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(from)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(to)||from===to)return alert('Enter two different dates in YYYY-MM-DD format.');
+ if(!confirm('Move every saved sale on '+from+' to '+to+', including matching sale movement history? Quantities, prices, payments and current stock will remain unchanged.'))return;
+ const {data,error}=await sb.rpc('club_neon_move_daily_sales_date',{p_business:bid,p_from_date:from,p_to_date:to});
+ if(error)return alert(error.message);
+ const moved=Number(data?.sales_moved||0);
+ if(!moved)return alert('No saved sales were found on '+from+'. Nothing was changed.');
+ $('collectionDate').value=to; selectedCollectionDate=to;
+ await window.refreshAll();
+ notify(moved+' sales and '+Number(data?.sale_movements_moved||0)+' matching sale movements moved to '+formatDate(to)+'. Quantities, amounts and stock balances were preserved.');
+};
 window.deleteSale=async id=>{
  if(role!=='admin')return alert('Admin access only.');
  const x=sales.find(s=>s.id===id);if(!x)return;
