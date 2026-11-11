@@ -290,13 +290,14 @@ main{padding:10px}
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label for="stockTakeProductSearch">Find product (type to search)</label><input id="stockTakeProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterStockTakeProducts()"></div><div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
-    <div class="field"><label>Opening stock</label><input id="stOpening" type="number" min="0" step="0.001" value="0"></div>
+    <div class="field"><label>Opening stock</label><input id="stOpening" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
-    <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0"></div>
-    <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0"></div>
-    <div class="field"><label>Physical closing stock</label><input id="stClosing" type="number" min="0" step="0.001" value="0"></div>
+    <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Physical closing stock (actual count)</label><input id="stClosing" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Note / correction reason</label><input id="stNote" type="text" placeholder="Optional"></div>
    </div>
+   <div class="cards" id="stockTakeLivePreview" aria-live="polite"></div>
    <p class="hint">Stock received, sales and stock corrections are included automatically. Calculated closing = opening + added − sold − wastage ± corrections. The calculated closing carries forward as the next recorded date's opening. Physical closing is kept separately to show any difference.
    <div class="cards"><div class="card"><div class="muted">Sales for selected date</div><div class="metric" id="dailyStockSalesTotal">KSh 0</div></div><div class="card"><div class="muted">Quantity sold</div><div class="metric" id="dailyStockSoldTotal">0</div></div><div class="card"><div class="muted">Stock received</div><div class="metric" id="dailyStockAddedTotal">0</div></div></div></p>
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
@@ -1291,7 +1292,29 @@ window.filterStockTakeProducts=function(silent=false){
  else if(matches.length)select.value=matches[0].id;
  if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
 };
-window.populateDailyStockTakeInputs=function(){const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);$('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);if(old){$('stOpening').value=old.opening_qty;$('stWastage').value=old.wastage_qty;$('stClosing').value=old.closing_qty;$('stNote').value=old.note||'';}else{const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);$('stOpening').value=prev?Number(prev.closing_qty||0):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);$('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold+v.adjustment).toFixed(3);$('stNote').value='';}};
+window.updateDailyStockTakePreview=function(){
+ const opening=Number($('stOpening')?.value||0),added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
+ const day=$('stockTakeDate')?.value||date(new Date()),pid=$('stockTakeProduct')?.value;
+ const adjustment=pid?Number(dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day)?.stock_adjustment_qty??window.dailyStockFigures(pid,day).adjustment??0):0;
+ const expected=opening+added-sold-wastage+adjustment;
+ const raw=$('stClosing')?.value,physical=raw!==''&&Number.isFinite(Number(raw))?Number(raw):null;
+ const difference=physical===null?null:physical-expected,el=$('stockTakeLivePreview');
+ if(el)el.innerHTML='<div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+expected.toFixed(3)+'</div></div><div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':physical.toFixed(3))+'</div></div><div class="card"><div class="muted">Difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
+};
+window.populateDailyStockTakeInputs=function(){
+ const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;
+ const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);
+ $('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
+ if(old){
+  $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
+  $('stClosing').value=Number(old.physical_closing_qty??old.closing_qty??0).toFixed(3);$('stNote').value=old.note||'';
+ }else{
+  const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);
+  $('stOpening').value=prev?Number(prev.closing_qty||0).toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
+  $('stWastage').value='0';$('stClosing').value=Math.max(0,Number($('stOpening').value||0)+v.added-v.sold+v.adjustment).toFixed(3);$('stNote').value='';
+ }
+ window.updateDailyStockTakePreview();
+};
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
  const day=$('stockTakeDate').value||date(new Date());
