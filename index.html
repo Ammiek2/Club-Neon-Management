@@ -2051,8 +2051,10 @@ window.exportPDF=async()=>{
  }catch(e){printWindow.close();$('reportExportStatus').textContent='PDF report failed: '+e.message;alert('Could not prepare PDF report: '+e.message);}
 };
 
-window.backup=()=>{
- download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves},null,2),'club-neon-backup.json','application/json');
+window.backup=async()=>{
+ const {data,error}=await sb.from('counter_book_openings').select('*').eq('business_id',bid);
+ if(error)return alert('Could not include cashier book openings in backup: '+error.message);
+ download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves,counterBookOpenings:data||[]},null,2),'club-neon-backup.json','application/json');
 };
 
 function download(data,name,type){
