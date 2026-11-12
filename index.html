@@ -269,7 +269,7 @@ main{padding:10px}
  <section id="stock" class="page hidden">
   <h1>Sales & Stock</h1>
   <p class="hint">Record sales, stock received and physical stock from this single working screen.</p>
-  <h2>Record sale</h2>
+  <div class="panel" id="salesPanel"><h2>Sales</h2><h3>Record sale</h3>
   <div class="panel">
    <div class="grid">
     <div class="field"><label for="saleProductSearch">Find product (type to search)</label><input id="saleProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterSaleProducts()"></div><div class="field"><label>Product</label><select id="sp" onchange="updateSalePrice()"></select></div>
@@ -282,9 +282,9 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <details class="panel"><summary><strong>Sales history (open when needed)</strong></summary><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Only sales notes belonging to the selected date are listed here. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></details>
-  <div class="panel" id="dailyStockTakePanel">
-   <h2>Counter stock ledger — daily take</h2>
+  <details class="panel"><summary><strong>Sales history (open when needed)</strong></summary><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></details>
+  </div><div class="panel" id="dailyStockTakePanel">
+   <h2>Daily Stock Ledger</h2>
    <p class="hint">Each date is kept separate. Last closing is the previous calendar day’s saved physical close; opening is the actual count at the start of this date and can be corrected independently. Added stock and recorded sales are filled from this date only. The ledger shows unrecorded opening stock, possible short sales, stock variance, sales value, unexplained stock value and potential loss separately. Values use selling price for sales and buying cost for stock value/loss. Decimal quantities such as 0.5 and 0.25 are supported.</p>
    <div class="grid">
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
@@ -304,15 +304,15 @@ main{padding:10px}
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
    <div id="dailyStockTakeTable" class="tablewrap"></div>
    <details class="panel" id="salesStockReconciliationPanel"><summary><strong>Stock and sales check (open when needed)</strong></summary><p class="hint">Calculated from the daily ledger, physical count and saved sales. Missing quantities are highlighted for checking; no sale is invented or created.</p><div class="cards" id="salesReconciliationTotals"></div><div id="salesReconciliationTable" class="tablewrap"></div><div class="actions"><button class="secondary" onclick="exportSalesReconciliation()">Export stock check CSV</button></div></details>
-   <details class="panel hidden" id="periodStockTakeSummary" style="margin-top:14px">
+   <details class="panel"><summary><strong>Notes &amp; issues for this date</strong></summary><p class="hint">Only notes belonging to the selected date are listed here. Marking or reopening an issue changes its tracker status only; it does not edit sales or stock.</p><div id="salesNotesTracker"></div></details><details class="panel hidden" id="periodStockTakeSummary" style="margin-top:14px">
     <summary><strong id="periodStockTakeTitle">Weekly / monthly stock summary</strong></summary>
     <p class="hint" id="periodStockTakeDescription">Period totals are calculated from saved daily stock takes, sales and stock-in records. Record the physical closing count on the selected closing date using the daily entry above.</p>
     <div class="cards" id="periodStockTakeTotals"></div>
     <div id="periodStockTakeTable" class="tablewrap"></div>
    </details>
   </div>
-  <div class="panel" id="addProductPanel">
-   <h2>Add product / opening stock</h2>
+  <div class="panel" id="productsStockPanel"><h2>Products &amp; Stock</h2><details class="panel" id="addProductPanel"><summary><strong>Add a product</strong></summary>
+   
    <div class="grid">
     <div class="field"><label>Product name</label><input id="pn" placeholder="Guinness, Tusker, etc."></div>
     <div class="field"><label>Category</label><select id="pc"><option>Beer</option><option>Spirits</option><option>Soft drinks</option><option>Water</option><option>Wines</option><option>Other</option></select></div>
@@ -323,7 +323,7 @@ main{padding:10px}
    </div>
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
   </div>
-  <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Search by product name or category, then use Stock in or Correct stock without scrolling through the full list.</p><div class="field" style="margin:10px 0"><label for="stockProductSearch">Find a product</label><input id="stockProductSearch" type="search" placeholder="Type Guinness, Tusker, beer..." oninput="filterStockProducts()"></div><div id="stockTable" class="tablewrap"></div></div>
+  <div class="panel"><h3>All products</h3><p class="hint" id="productsHint">Search by product name or category, then use Stock in or Correct stock without scrolling through the full list.</p><div class="field" style="margin:10px 0"><label for="stockProductSearch">Find a product</label><input id="stockProductSearch" type="search" placeholder="Type Guinness, Tusker, beer..." oninput="filterStockProducts()"></div><div id="stockTable" class="tablewrap"></div></div>
   <details class="panel" id="stockHistoryPanel"><summary><strong>Stock movement history (open when needed)</strong></summary><div id="stockHistory" class="tablewrap"></div></details>
  </section>
 
