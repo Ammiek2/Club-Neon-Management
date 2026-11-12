@@ -1274,6 +1274,14 @@ window.changeCollectionDate=async function(){
 };
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='correction'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
+window.openingFromLastPhysicalClose=function(pid,day){
+ const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);if(!prev)return null;
+ const base=Number(prev.physical_closing_qty??prev.closing_qty??0),from=prev.collection_date;
+ const incoming=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='stock_in').reduce((n,m)=>n+Number(m.quantity||0),0);
+ const corrections=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='correction').reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);
+ const sold=sales.filter(x=>x.product_id===pid&&date(x.created_at)>from&&date(x.created_at)<day).reduce((n,x)=>n+Number(x.quantity||0),0);
+ return base+incoming+corrections-sold;
+};
 window.filterStockTakeProducts=function(silent=false){
  const select=$('stockTakeProduct'),search=$('stockTakeProductSearch');
  if(!select)return;
@@ -1304,8 +1312,8 @@ window.populateDailyStockTakeInputs=function(){
   $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
   $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);$('stNote').value=old.note||'';
  }else{
-  const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);
-  $('stOpening').value=prev?Number(prev.physical_closing_qty??prev.closing_qty??0).toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
+  const carried=window.openingFromLastPhysicalClose(pid,day);
+  $('stOpening').value=carried!==null?carried.toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
   $('stWastage').value='0';$('stClosing').value='';$('stNote').value='';
  }
  $('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';
@@ -1378,7 +1386,7 @@ window.loadDailyStockTakes=async function(silent=false){
   const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
   const sold=x?Number(x.sold_qty||0):figures.sold;
   const added=x?Number(x.stock_added||0):figures.added;
-  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.physical_closing_qty??previous.closing_qty??0):Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
+  const carried=window.openingFromLastPhysicalClose(p.id,day);const opening=x?Number(x.opening_qty||0):carried!==null?carried:Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
   const wastage=x?Number(x.wastage_qty||0):0;
   const adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
   const expected=opening+added-sold-wastage+adjustment;
@@ -1422,8 +1430,8 @@ window.loadDailyStockTakes=async function(silent=false){
 
 window.renderSalesReconciliation=function(day){
  const rows=products.map(p=>{
-  const take=dailyStockTakes.find(z=>z.product_id===p.id),book=counterBookOpenings.find(z=>z.product_id===p.id),prev=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day),fig=window.dailyStockFigures(p.id,day);
-  const opening=take?Number(take.opening_qty||0):prev?Number(prev.physical_closing_qty??prev.closing_qty??0):Math.max(0,Number(p.stock||0)-fig.added+fig.sold-fig.adjustment);
+  const take=dailyStockTakes.find(z=>z.product_id===p.id),book=counterBookOpenings.find(z=>z.product_id===p.id),fig=window.dailyStockFigures(p.id,day),carried=window.openingFromLastPhysicalClose(p.id,day);
+  const opening=take?Number(take.opening_qty||0):carried!==null?carried:Math.max(0,Number(p.stock||0)-fig.added+fig.sold-fig.adjustment);
   const added=take?Number(take.stock_added||0):fig.added,wastage=Number(take?.wastage_qty||0),adjustment=Number(take?.stock_adjustment_qty??fig.adjustment??0);
   const physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
   const cashierOpening=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty):null,cashierSold=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty):null,cashierClosing=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty):null;
