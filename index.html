@@ -239,8 +239,8 @@ main{padding:10px}
    </div>
    <p class="hint" id="dailyStockPurchaseNote">Buying costs are calculated from each Stock-in entry. Entries with no saved buying cost are not guessed.</p>
   </div>
-  <div class="panel">
-   <h2>Previous stock purchases (formerly recorded as expenses)</h2>
+  <details class="panel"><summary><strong>Previous stock purchases (open when needed)</strong></summary>
+   
    <p class="hint">This separate table preserves the earlier Stock-category entries. They are shown here for reference and are excluded from ordinary expenses so they are not counted twice. Select the collection date above, then add a supplier purchase for that date. You can also choose a past or future date when adding.</p>
    <div class="grid" id="legacyStockPurchaseForm">
     <div class="field"><label for="legacyStockDate">Purchase date</label><input id="legacyStockDate" type="date"></div>
@@ -252,7 +252,7 @@ main{padding:10px}
    <p class="hint" id="legacyStockFormMessage">Enter a description for every stock purchase. These historical entries do not change product quantities or get deducted twice.</p>
    <div id="legacyStockExpenseTable" class="tablewrap"></div>
    <div class="metric" id="legacyStockExpenseTotal">KSh 0</div>
-  </div>
+  </details>
   <h2>Current stock position</h2>
   <div class="cards">
    <div class="card"><div class="muted">Total stock quantity</div><div class="metric" id="stockQtyTotal">0</div></div>
@@ -282,7 +282,7 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Only sales notes belonging to the selected date are listed here. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></div>
+  <details class="panel"><summary><strong>Sales history (open when needed)</strong></summary><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Only sales notes belonging to the selected date are listed here. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></details>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Counter stock ledger — daily take</h2>
    <p class="hint">This is the movement record for drinks at the counter: opening stock + stock received − sold − wastage ± corrections = expected counter balance. Enter the actual physical count separately to see the difference. Sales and Stock-in records feed this ledger automatically. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to mark an issue on this date only. The ledger carries forward the last actual physical close and fills quantities from saved sales, stock-in and corrections wherever possible. Unverifiable gaps are shown for checking, never invented as sales. Decimal quantities such as 0.5 and 0.25 are supported.</p>
@@ -324,7 +324,7 @@ main{padding:10px}
    <div class="actions"><button onclick="saveProduct()">Save product</button></div>
   </div>
   <div class="panel"><h2>All products</h2><p class="hint" id="productsHint">Search by product name or category, then use Stock in or Correct stock without scrolling through the full list.</p><div class="field" style="margin:10px 0"><label for="stockProductSearch">Find a product</label><input id="stockProductSearch" type="search" placeholder="Type Guinness, Tusker, beer..." oninput="filterStockProducts()"></div><div id="stockTable" class="tablewrap"></div></div>
-  <div class="panel" id="stockHistoryPanel"><h2>Stock movement history (stock-in, sales and corrections)</h2><div id="stockHistory" class="tablewrap"></div></div>
+  <details class="panel" id="stockHistoryPanel"><summary><strong>Stock movement history (open when needed)</strong></summary><div id="stockHistory" class="tablewrap"></div></details>
  </section>
 
  <section id="expenses" class="page hidden">
@@ -338,7 +338,7 @@ main{padding:10px}
    </div>
    <div class="actions"><button onclick="addExpense()">Save expense</button></div>
   </div>
-  <div class="panel"><h2>Expense history</h2><div id="expenseTable" class="tablewrap"></div></div>
+  <details class="panel"><summary><strong>Expense history (open when needed)</strong></summary><div id="expenseTable" class="tablewrap"></div></details>
  </section>
 
  <section id="reports" class="page hidden">
@@ -2086,7 +2086,7 @@ window.exportPDF=async()=>{
 };
 
 window.backup=async()=>{
- download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves,dailyStockTakes,dailyStockTakeFlags},null,2),'club-neon-backup.json','application/json');
+ download(JSON.stringify({products,sales,expenses,staff,stockMovements:moves},null,2),'club-neon-backup.json','application/json');
 };
 
 function download(data,name,type){
