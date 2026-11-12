@@ -393,6 +393,13 @@ main{padding:10px}
    <p class="hint">Download a copy of cloud records or refresh from the database.</p>
    <div class="actions"><button onclick="backup()">Download JSON backup</button><button class="secondary" onclick="refreshAll()">Refresh from cloud</button></div>
   </div>
+  <div class="panel">
+   <h2>Reset collection records — keep 1 August closing stock</h2>
+   <p class="hint">This admin-only reset keeps every product, its current quantity and prices, staff, PIN accounts and business settings. It clears saved sales, expenses, stock movements, daily stock takes, flags, cash balances and shift records, then creates one 1 August 2026 closing baseline from the current active Products quantities. Decimal stock such as 17.5 is preserved.</p>
+   <p class="hint"><strong>Important:</strong> This cannot be undone. Download a backup first if you may need the old records.</p>
+   <div class="actions"><button class="danger" id="resetOperationalRecordsButton" onclick="resetOperationalRecords()">Reset operational records and create 1 Aug baseline</button></div>
+   <p id="resetOperationalRecordsStatus" class="hint">No reset has been run.</p>
+  </div>
  </section>
 </main>
 </div>
@@ -2085,6 +2092,40 @@ window.exportPDF=async()=>{
   printWindow.document.close();
   $('reportExportStatus').textContent='Readable landscape report opened. Choose “Save as PDF” in the print options.';
  }catch(e){printWindow.close();$('reportExportStatus').textContent='PDF report failed: '+e.message;alert('Could not prepare PDF report: '+e.message);}
+};
+
+
+window.resetOperationalRecords=async function(){
+ if(role!=='admin'||!bid)return alert('Administrator access is required.');
+ const confirmation=prompt(
+  'This will permanently clear saved sales, expenses, stock movements, all daily stock takes, flags, balances, cash variances and shift records for this business. Current active Products quantities and prices, staff, PIN accounts and business settings will be preserved. The current active product quantities will become the 1 August 2026 closing baseline.\\n\\nType RESET AUGUST to continue.'
+ );
+ if(confirmation!=='RESET AUGUST')return;
+ const button=$('resetOperationalRecordsButton');
+ const status=$('resetOperationalRecordsStatus');
+ if(button)button.disabled=true;
+ if(status)status.textContent='Checking administrator access and preparing the 1 August baseline...';
+ try{
+  const {data,error}=await sb.rpc('club_neon_reset_operational_records',{p_business:bid});
+  if(error)throw error;
+  if(!data||data.success!==true)throw new Error('The database did not confirm the reset.');
+  selectedCollectionDate='2026-08-01';
+  if($('collectionDate'))$('collectionDate').value='2026-08-01';
+  if($('balanceDate'))$('balanceDate').value='2026-08-01';
+  if($('cashVarianceDate'))$('cashVarianceDate').value='2026-08-01';
+  await refreshAll();
+  if($('collectionDate'))$('collectionDate').value='2026-08-01';
+  if($('balanceDate'))await loadManualBalance(true);
+  if($('resetOperationalRecordsStatus'))$('resetOperationalRecordsStatus').textContent='Complete: '+data.baseline_products+' active products saved as the 1 August 2026 closing baseline. Operational records cleared; products, prices, staff and PIN accounts preserved.';
+  notify('Reset complete. 1 August 2026 closing stock is now the starting baseline.');
+  alert('Reset complete.\\n\\n'+data.baseline_products+' active products have been saved as the 1 August 2026 closing stock. All later operational records have been cleared. Products, prices, staff and PIN accounts were preserved.');
+ }catch(e){
+  console.error('Operational reset failed:',e);
+  if(status)status.textContent='Reset not completed: '+(e?.message||'Unknown error')+'. No partial reset should remain because the database reset runs in one transaction.';
+  alert('Reset failed: '+(e?.message||'Unknown error'));
+ }finally{
+  if(button)button.disabled=false;
+ }
 };
 
 window.backup=async()=>{
