@@ -285,12 +285,12 @@ main{padding:10px}
   <details class="panel"><summary><strong>Sales history (open when needed)</strong></summary><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Only sales notes belonging to the selected date are listed here. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></details>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Counter stock ledger — daily take</h2>
-   <p class="hint">This is the movement record for drinks at the counter: opening stock + stock received − sold − wastage ± corrections = expected counter balance. Enter the actual physical count separately to see the difference. Sales and Stock-in records feed this ledger automatically. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to mark an issue on this date only. The ledger carries forward the last actual physical close and fills quantities from saved sales, stock-in and corrections wherever possible. Unverifiable gaps are shown for checking, never invented as sales. Decimal quantities such as 0.5 and 0.25 are supported.</p>
+   <p class="hint">Each date is kept separate. Last closing is the previous calendar day’s saved physical close; opening is the actual count at the start of this date and can be corrected independently. Added stock and recorded sales are filled from this date only. The ledger shows unrecorded opening stock, possible short sales, stock variance, sales value, unexplained stock value and potential loss separately. Values use selling price for sales and buying cost for stock value/loss. Decimal quantities such as 0.5 and 0.25 are supported.</p>
    <div class="grid">
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label for="stockTakeProductSearch">Find product (type to search)</label><input id="stockTakeProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterStockTakeProducts()"></div><div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
-    <div class="field"><label>Opening stock (auto-carried from last physical close; enter initial opening if none exists)</label><input id="stOpening" type="number" min="0" step="0.001" value="" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Opening stock (actual count at start of this date; auto-filled from last close, editable)</label><input id="stOpening" type="number" min="0" step="0.001" value="" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
     <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
@@ -298,7 +298,7 @@ main{padding:10px}
     <div class="field"><label>Note / correction reason</label><input id="stNote" type="text" placeholder="Optional"></div>
    </div>
    <div class="cards" id="stockTakeLivePreview" aria-live="polite"></div>
-   <p class="hint">Stock received, sales and stock corrections are included automatically. Expected counter balance = opening + added − sold − wastage ± corrections. The expected balance carries forward to the next recorded date. Physical closing must be the quantity you actually count at the counter; it is never guessed from the expected balance.
+   <p class="hint">Last closing is carried from the previous calendar day only. Opening may differ and the difference is shown as unrecorded opening stock. Expected closing = opening + added − sold − wastage ± corrections. Physical closing is the actual count, never a guessed value. Money values use the product selling price for sales and buying cost for stock valuation and potential loss.
    <div class="cards"><div class="card"><div class="muted">Sales for selected date</div><div class="metric" id="dailyStockSalesTotal">KSh 0</div></div><div class="card"><div class="muted">Quantity sold</div><div class="metric" id="dailyStockSoldTotal">0</div></div><div class="card"><div class="muted">Stock received</div><div class="metric" id="dailyStockAddedTotal">0</div></div></div></p>
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
@@ -1277,23 +1277,14 @@ window.changeCollectionDate=async function(){
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);if($('stockTakeProduct').value)window.populateDailyStockTakeInputs();};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&['correction','sale_adjustment'].includes(String(x.movement_type).toLowerCase())),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{if(String(m.movement_type).toLowerCase()==='sale_adjustment')return n+Number(m.quantity||0);const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.openingFromLastPhysicalClose=function(pid,day){
- // Use the latest genuine physical count before the selected date. An expected
- // closing balance from an unclosed date must never become the carry-forward anchor.
- const previous=dailyStockTakeHistory.filter(x=>x.product_id===pid&&x.collection_date<day&&x.physical_closing_qty!==null&&x.physical_closing_qty!==undefined).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date)));
- const prev=previous[0];if(!prev)return null;
- const from=prev.collection_date,between=d=>d>from&&d<day;
- const movementFlow=moves.filter(m=>m.product_id===pid&&between(date(m.created_at))).reduce((n,m)=>{
-  const type=String(m.movement_type||'').toLowerCase();
-  if(type==='stock_in'||type==='sale_adjustment')return n+Number(m.quantity||0);
-  if(type==='correction'){const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);}
-  return n;
- },0);
- const sold=sales.filter(x=>x.product_id===pid&&between(date(x.created_at))).reduce((n,x)=>n+Number(x.quantity||0),0);
- const unclosed=dailyStockTakeHistory.filter(x=>x.product_id===pid&&between(x.collection_date));
- const manualSold=unclosed.reduce((n,x)=>n+Number(x.manual_sold_extra||0),0);
- const wastage=unclosed.reduce((n,x)=>n+Number(x.wastage_qty||0),0);
- return Number(prev.physical_closing_qty)+movementFlow-sold-manualSold-wastage;
+ // Only the immediately previous calendar day's physical close carries forward.
+ const d=new Date(day+'T12:00:00');d.setDate(d.getDate()-1);
+ const prior=localDayString(d);
+ const previous=dailyStockTakeHistory.filter(x=>x.product_id===pid&&x.collection_date===prior&&x.physical_closing_qty!==null&&x.physical_closing_qty!==undefined).sort((x,y)=>String(y.updated_at||y.created_at||'').localeCompare(String(x.updated_at||x.created_at||'')));
+ return previous.length?Number(previous[0].physical_closing_qty):null;
 };
+window.lastPhysicalCloseForDate=function(pid,day){return window.openingFromLastPhysicalClose(pid,day);};
+
 window.filterStockTakeProducts=function(silent=false){
  const select=$('stockTakeProduct'),search=$('stockTakeProductSearch');
  if(!select)return;
@@ -1312,43 +1303,48 @@ window.filterStockTakeProducts=function(silent=false){
 window.updateDailyStockTakePreview=function(){
  const openingRaw=$('stOpening')?.value||'',opening=openingRaw.trim()!==''&&Number.isFinite(Number(openingRaw))?Number(openingRaw):null;
  const added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
- const day=$('stockTakeDate')?.value||date(new Date()),pid=$('stockTakeProduct')?.value;
+ const day=$('stockTakeDate')?.value||date(new Date()),pid=$('stockTakeProduct')?.value,p=products.find(x=>x.id===pid);
+ const lastClose=pid?window.lastPhysicalCloseForDate(pid,day):null;
  const adjustment=pid?Number(dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day)?.stock_adjustment_qty??window.dailyStockFigures(pid,day).adjustment??0):0;
  const raw=$('stClosing')?.value,physical=raw!==''&&Number.isFinite(Number(raw))?Number(raw):null;
  const expectedClosing=opening===null?null:opening+added-sold-wastage+adjustment;
- const expectedSold=opening===null||physical===null?null:Math.max(0,opening+added+adjustment-wastage-physical);
+ const openingShort=lastClose===null||opening===null?null:Math.max(0,lastClose-opening);
+ const variance=physical===null||expectedClosing===null?null:expectedClosing-physical;
  const systemSold=pid?sales.filter(x=>x.product_id===pid&&date(x.created_at)===day).reduce((n,x)=>n+Number(x.quantity||0),0):0;
- const missing=expectedSold===null?null:Math.max(0,expectedSold-systemSold);
- const excess=expectedSold===null?null:Math.max(0,systemSold-expectedSold);
- const difference=physical===null||expectedClosing===null?null:physical-expectedClosing,el=$('stockTakeLivePreview');
- const fmt=n=>n===null?'—':Number(n).toFixed(3);
+ const savedSold=pid?dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day)?.sold_qty:null;
+ const shortSales=savedSold===null||savedSold===undefined?0:Math.max(0,Number(savedSold)-systemSold);
+ const fmt=n=>n===null?'—':Number(n).toFixed(3),cash=(q,cost)=>q===null?'—':money(q*Number(cost||0)),el=$('stockTakeLivePreview');
  if(el)el.innerHTML=
-  '<div class="card"><div class="muted">Opening carried from last collection</div><div class="metric">'+(opening===null?'Enter first actual opening':fmt(opening))+'</div></div>'+
-  '<div class="card"><div class="muted">Stock received</div><div class="metric">'+fmt(added)+'</div></div>'+
-  '<div class="card"><div class="muted">Sold from saved sales</div><div class="metric">'+fmt(systemSold)+'</div></div>'+
-  '<div class="card"><div class="muted">Expected sold from stock balance</div><div class="metric">'+fmt(expectedSold)+'</div></div>'+
-  '<div class="card"><div class="muted">Sales quantity not yet recorded</div><div class="metric">'+fmt(missing)+'</div></div>'+
-  '<div class="card"><div class="muted">Excess sales quantity to check</div><div class="metric">'+fmt(excess)+'</div></div>'+
+  '<div class="card"><div class="muted">Last closing stock (previous date)</div><div class="metric">'+fmt(lastClose)+'</div><div class="hint">Value at buying cost: '+cash(lastClose,p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Opening stock (actual)</div><div class="metric">'+fmt(opening)+'</div><div class="hint">Value at buying cost: '+cash(opening,p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Unrecorded opening stock</div><div class="metric">'+fmt(openingShort)+'</div><div class="hint">Unexplained value at cost: '+cash(openingShort,p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Stock added</div><div class="metric">'+fmt(added)+'</div><div class="hint">Purchase value at cost: '+cash(added,p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Sold quantity</div><div class="metric">'+fmt(sold)+'</div><div class="hint">Saved sales: '+(pid?money(sales.filter(x=>x.product_id===pid&&date(x.created_at)===day).reduce((n,x)=>n+Number(x.total||0),0)):'—')+'</div></div>'+
   '<div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+fmt(expectedClosing)+'</div></div>'+
-  '<div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':fmt(physical))+'</div></div>'+
-  '<div class="card"><div class="muted">Physical difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
+  '<div class="card"><div class="muted">Physical closing stock</div><div class="metric">'+fmt(physical)+'</div></div>'+
+  '<div class="card"><div class="muted">Unexplained stock shortage</div><div class="metric">'+fmt(variance===null?null:Math.max(0,variance))+'</div><div class="hint">Potential loss at cost: '+cash(variance===null?null:Math.max(0,variance),p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Short sales not in transactions</div><div class="metric">'+fmt(shortSales)+'</div><div class="hint">Potential sales value: '+cash(shortSales,p?.selling_price)+'</div></div>';
 };
+
 window.populateDailyStockTakeInputs=function(){
  const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;
  const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day);
- const carried=window.openingFromLastPhysicalClose(pid,day);
- const openingSuggestion=old?Number(old.opening_qty||0):carried;
- $('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
+ const lastClose=window.lastPhysicalCloseForDate(pid,day);
+ $('stAdded').value=v.added.toFixed(3);
+ $('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
+ $('stOpening').readOnly=false;
  if(old){
-  $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stOpening').readOnly=true;$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
-  $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);$('stNote').value=old.note||'';
+  $('stOpening').value=Number(old.opening_qty||0).toFixed(3);
+  $('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
+  $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);
+  $('stNote').value=old.note||'';
  }else{
-  $('stOpening').readOnly=carried!==null;
-  $('stOpening').value=carried!==null?carried.toFixed(3):'';
+  $('stOpening').value=lastClose===null?'':lastClose.toFixed(3);
   $('stWastage').value='0';$('stClosing').value='';$('stNote').value='';
  }
  window.updateDailyStockTakePreview();
 };
+
 window.loadDailyStockTakes=async function(silent=false){
  if(!bid||!role||!$('stockTakeDate'))return;
  const day=$('stockTakeDate').value||date(new Date());
@@ -1400,37 +1396,48 @@ window.loadDailyStockTakes=async function(silent=false){
   updateManualBalanceSummary();
  }
  const rows=products.map(p=>{
-  const x=dailyStockTakes.find(z=>z.product_id===p.id);
-  const flag=dailyStockTakeFlags.find(z=>z.product_id===p.id);
+  const x=dailyStockTakes.find(z=>z.product_id===p.id&&z.collection_date===day);
+  const flag=dailyStockTakeFlags.find(z=>z.product_id===p.id&&z.collection_date===day);
   const flagged=flag?.status==='open';
   const figures=window.dailyStockFigures(p.id,day);
   const actual=ds.filter(z=>z.product_id===p.id);
-  const actualQty=actual.reduce((a,z)=>a+Number(z.quantity||0),0);
-  const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
-  const sold=x?Number(x.sold_qty||0):figures.sold;
-  const added=x?Number(x.stock_added||0):figures.added;
-  const carried=window.openingFromLastPhysicalClose(p.id,day);const opening=x?Number(x.opening_qty||0):carried!==null?carried:null;
-  const wastage=x?Number(x.wastage_qty||0):0;
-  const adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
+  const actualQty=actual.reduce((n,z)=>n+Number(z.quantity||0),0);
+  const actualValue=actual.reduce((n,z)=>n+Number(z.total||0),0);
+  const sold=x?Number(x.sold_qty||0):figures.sold,added=x?Number(x.stock_added||0):figures.added;
+  const lastClose=window.lastPhysicalCloseForDate(p.id,day),opening=x?Number(x.opening_qty||0):lastClose;
+  const wastage=x?Number(x.wastage_qty||0):0,adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
   const expected=opening===null?null:opening+added-sold-wastage+adjustment;
-  const missing=x?Math.max(0,sold-actualQty):0;
-  const value=actualValue+missing*Number(p.selling_price||0);
-  const current=Number(p.stock||0);
   const physical=x&&x.physical_closing_qty!==null&&x.physical_closing_qty!==undefined?Number(x.physical_closing_qty):null;
-  const recordAction=x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`:`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
-  const flagAction=flagged
-   ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
-   :flag
-    ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
-    :`<button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Flag for explanation</button>`;
+  const unrecorded=lastClose===null||opening===null?null:Math.max(0,lastClose-opening);
+  const openingSurplus=lastClose===null||opening===null?null:Math.max(0,opening-lastClose);
+  const stockVariance=physical===null||expected===null?null:expected-physical;
+  const missingSales=x?Math.max(0,sold-actualQty):0;
+  const saleValue=actualValue+missingSales*Number(p.selling_price||0);
+  const unrecordedCost=unrecorded===null?null:unrecorded*Number(p.buying_cost||0);
+  const shortSalesValue=missingSales*Number(p.selling_price||0);
+  const potentialLoss=stockVariance===null?null:Math.max(0,stockVariance)*Number(p.buying_cost||0);
+  const qtyMoney=(q,amount,basis)=>q===null?'—':q.toFixed(3)+'<div class="muted">'+(amount===null?'—':money(amount))+' '+basis+'</div>';
+  const recordAction=x?'<button class="secondary small" onclick="editDailyStockTake(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''):'<button class="small" onclick="recordDailyStockTakeProduct(\''+p.id+'\')">Record</button>';
+  const flagAction=flagged?'<button class="secondary small" onclick="resolveDailyStockTakeIssue(\''+flag.id+'\')">Resolve</button> '+(role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''):flag?'<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue(\''+p.id+'\')">Reopen</button> '+(role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''):'<button class="secondary small" onclick="flagDailyStockTakeIssue(\''+p.id+'\')">Flag</button>';
   const noteText=flagged?'NEEDS EXPLANATION: '+flag.reason:flag?.status==='resolved'?'RESOLVED: '+(flag.resolution_note||flag.reason):x?.note||(x?'':'Not yet recorded');
-  return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+(opening===null?'SET OPENING':opening.toFixed(3))+'</td><td>'+added.toFixed(3)+'</td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+adjustment.toFixed(3)+'</td><td>'+(expected===null?'—':expected.toFixed(3))+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null||expected===null?'—':(physical-expected).toFixed(3))+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(value)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
+  const issue=stockVariance!==null&&stockVariance>0.0005;
+  return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':issue?'issue-flagged':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td>'+
+   '<td>'+qtyMoney(lastClose,lastClose===null?null:lastClose*Number(p.buying_cost||0),'cost')+'</td>'+
+   '<td>'+qtyMoney(opening,opening===null?null:opening*Number(p.buying_cost||0),'cost')+(openingSurplus>0?'<div class="muted">Extra '+openingSurplus.toFixed(3)+'</div>':'')+'</td>'+
+   '<td>'+qtyMoney(added,added*Number(p.buying_cost||0),'cost')+'</td>'+
+   '<td>'+qtyMoney(sold,saleValue,'sales')+'</td>'+
+   '<td>'+qtyMoney(physical,physical===null?null:physical*Number(p.buying_cost||0),'cost')+'</td>'+
+   '<td>'+qtyMoney(unrecorded,unrecordedCost,'cost')+'</td>'+
+   '<td>'+qtyMoney(missingSales,shortSalesValue,'sales')+'</td>'+
+   '<td>'+qtyMoney(stockVariance,stockVariance===null?null:Math.abs(stockVariance)*Number(p.buying_cost||0),'cost')+'</td>'+
+   '<td>'+money(saleValue)+'</td><td>'+(unrecordedCost===null?'—':money(unrecordedCost))+'</td><td>'+(potentialLoss===null?'—':money(potentialLoss))+'</td>'+
+   '<td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
   ...ds.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
- $('dailyStockTakeTable').innerHTML=tbl(['Product','Opening','Added','Sold','Wastage','Corrections','Expected close','Physical close','Difference','Unrecorded sold','Sales value','Note','Actions'],rows);
+ $('dailyStockTakeTable').innerHTML=tbl(['Product','Last closing','Opening','Added','Sold','Physical close','Unrecorded stock','Short sales*','Stock variance','Sales value','Unrecorded value','Potential loss','Note / explanation','Actions'],rows);
  const {data:noteStatusRows,error:noteStatusError}=await sb.from('sale_note_statuses').select('*').eq('business_id',bid);
  saleNoteStatuses=noteStatusError?[]:(noteStatusRows||[]);
  const notedSales=sales.filter(x=>date(x.created_at)===day&&String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
@@ -1441,7 +1448,7 @@ window.loadDailyStockTakes=async function(silent=false){
    }))
   :'<p class="hint">No sales notes have been recorded yet. Add a note while collecting a sale and it will appear here automatically.</p>';
 
- $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Calculated sales: '+money(totals.totalSales)+'; unallocated from stock counts: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). '+(Math.abs(stockTakeSold-transactionSold)>0.0005?'Stock quantities exceed recorded sale quantities; missing quantities are valued at each product selling price.':'Recorded sales match stock-take quantities.');
+ $('stockTakeStatus').textContent=dailyStockTakes.length+' stock-take records for '+day+'. '+dailyStockTakeFlags.filter(x=>x.status==='open').length+' unresolved explanation flags. Sales value: '+money(totals.totalSales)+'; unallocated short sales: '+money(totals.unallocatedSales)+' ('+totals.unallocatedQty.toFixed(3)+' units). *Short sales are stock-count sold quantities not matched to saved sale transactions. Potential loss is valued at buying cost and remains an estimate until explained.';
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
  if(($('stockTakePeriod')?.value||'daily')!=='daily')await loadPeriodStockTakeSummary();
  if($('appProductSearch')?.value)window.filterAppProducts();
