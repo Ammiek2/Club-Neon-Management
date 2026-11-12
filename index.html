@@ -1498,8 +1498,8 @@ window.exportSalesReconciliation=function(){
  const r=window.currentSalesReconciliation;if(!r)return alert('Load a date and reconciliation first.');
  const rows=[['Date','Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Stock variance','Short-sales value KSh','Unrecorded value at cost KSh','Potential loss at cost KSh']];
  r.rows.forEach(x=>rows.push([r.day,x.p.name,x.lastClose,x.opening,x.added,x.sold,x.systemSold,x.unallocatedSales,x.expectedClose,x.physical,x.stockVariance,x.unallocatedSalesValue,x.unrecordedValue,x.potentialLoss]));
- const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\\r\\n');
- download('\\uFEFF'+csv,'club-neon-stock-check-'+r.day+'.csv','text/csv;charset=utf-8');
+ const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+ download('\uFEFF'+csv,'club-neon-stock-check-'+r.day+'.csv','text/csv;charset=utf-8');
 };
 
 window.recordDailyStockTakeProduct=async function(pid){
