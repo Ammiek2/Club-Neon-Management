@@ -1459,21 +1459,49 @@ window.loadDailyStockTakes=async function(silent=false){
 
 window.renderSalesReconciliation=function(day){
  const rows=products.map(p=>{
-  const take=dailyStockTakes.find(z=>z.product_id===p.id),fig=window.dailyStockFigures(p.id,day),opening=take?Number(take.opening_qty||0):window.openingFromLastPhysicalClose(p.id,day),added=take?Number(take.stock_added||0):fig.added,wastage=Number(take?.wastage_qty||0),adjustment=Number(take?.stock_adjustment_qty??fig.adjustment??0),physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
-  const expectedSold=opening===null||physical===null?null:Math.max(0,opening+added+adjustment-wastage-physical),tx=sales.filter(z=>z.product_id===p.id&&date(z.created_at)===day),systemSold=tx.reduce((n,z)=>n+Number(z.quantity||0),0),missing=expectedSold===null?null:Math.max(0,expectedSold-systemSold),excess=expectedSold===null?null:Math.max(0,systemSold-expectedSold);
-  return {p,opening,added,wastage,adjustment,physical,expectedSold,systemSold,missing,excess,missingValue:missing===null?null:missing*Number(p.selling_price||0)};
+  const take=dailyStockTakes.find(z=>z.product_id===p.id&&z.collection_date===day),fig=window.dailyStockFigures(p.id,day);
+  const lastClose=window.lastPhysicalCloseForDate(p.id,day);
+  const opening=take?Number(take.opening_qty||0):lastClose;
+  const added=take?Number(take.stock_added||0):fig.added;
+  const sold=take?Number(take.sold_qty||0):fig.sold;
+  const wastage=Number(take?.wastage_qty||0),adjustment=Number(take?.stock_adjustment_qty??fig.adjustment??0);
+  const physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
+  const expectedClose=opening===null?null:opening+added-sold-wastage+adjustment;
+  const stockVariance=expectedClose===null||physical===null?null:expectedClose-physical;
+  const tx=sales.filter(z=>z.product_id===p.id&&date(z.created_at)===day);
+  const systemSold=tx.reduce((n,z)=>n+Number(z.quantity||0),0);
+  const unallocatedSales=Math.max(0,sold-systemSold);
+  const unrecordedOpening=lastClose===null||opening===null?null:Math.max(0,lastClose-opening);
+  return {p,lastClose,opening,added,sold,wastage,adjustment,physical,expectedClose,stockVariance,systemSold,unallocatedSales,
+   unallocatedSalesValue:unallocatedSales*Number(p.selling_price||0),
+   unrecordedOpening,unrecordedValue:unrecordedOpening===null?null:unrecordedOpening*Number(p.buying_cost||0),
+   possibleSaleValue:unrecordedOpening===null?null:unrecordedOpening*Number(p.selling_price||0),
+   potentialLoss:stockVariance===null?null:Math.max(0,stockVariance)*Number(p.buying_cost||0)};
  });
- const fmt=v=>v===null?'—':Number(v).toFixed(3),sum=k=>rows.reduce((n,x)=>n+Number(x[k]||0),0),pending=rows.filter(x=>x.physical===null).length;
- $('salesReconciliationTotals').innerHTML=[['Expected sold',fmt(sum('expectedSold'))+' units'],['Saved sales',fmt(sum('systemSold'))+' units'],['Missing sale quantity',fmt(sum('missing'))+' units'],['Estimated missing value',money(sum('missingValue'))],['Awaiting physical count',pending+' products']].map(([a,b])=>'<div class="sales-total"><div class="label">'+a+'</div><div class="value">'+b+'</div></div>').join('');
- $('salesReconciliationTable').innerHTML=tbl(['Product','Opening','Added','Expected sold','Saved sales','Missing','Excess','Missing value','Physical close','Status'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+fmt(x.opening)+'</td><td>'+fmt(x.added)+'</td><td>'+fmt(x.expectedSold)+'</td><td>'+fmt(x.systemSold)+'</td><td>'+fmt(x.missing)+'</td><td>'+fmt(x.excess)+'</td><td>'+(x.missingValue===null?'—':money(x.missingValue))+'</td><td>'+fmt(x.physical)+'</td><td>'+(x.physical===null?'Awaiting count':x.missing>0.0005?'Missing sales':x.excess>0.0005?'Check excess':'Balanced')+'</td></tr>'));
+ const fmt=v=>v===null?'—':Number(v).toFixed(3),sum=k=>rows.reduce((n,x)=>n+Number(x[k]||0),0);
+ const pending=rows.filter(x=>x.physical===null).length;
+ $('salesReconciliationTotals').innerHTML=[
+  ['Ledger sold',fmt(sum('sold'))+' units'],
+  ['Saved sale transactions',fmt(sum('systemSold'))+' units'],
+  ['Short / unallocated sales',fmt(sum('unallocatedSales'))+' units'],
+  ['Short-sales value',money(sum('unallocatedSalesValue'))],
+  ['Unrecorded opening stock',fmt(sum('unrecordedOpening'))+' units'],
+  ['Unrecorded stock value (cost)',money(sum('unrecordedValue'))],
+  ['Unexplained closing shortage',fmt(rows.reduce((n,x)=>n+Math.max(0,Number(x.stockVariance||0)),0))+' units'],
+  ['Potential loss at cost',money(sum('potentialLoss'))],
+  ['Awaiting physical count',pending+' products']
+ ].map(([a,b])=>'<div class="sales-total"><div class="label">'+a+'</div><div class="value">'+b+'</div></div>').join('');
+ $('salesReconciliationTable').innerHTML=tbl(['Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Stock variance','Short-sales value','Unrecorded value (cost)','Potential loss (cost)'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+fmt(x.lastClose)+'</td><td>'+fmt(x.opening)+'</td><td>'+fmt(x.added)+'</td><td>'+fmt(x.sold)+'</td><td>'+fmt(x.systemSold)+'</td><td>'+fmt(x.unallocatedSales)+'</td><td>'+fmt(x.expectedClose)+'</td><td>'+fmt(x.physical)+'</td><td>'+fmt(x.stockVariance)+'</td><td>'+money(x.unallocatedSalesValue)+'</td><td>'+(x.unrecordedValue===null?'—':money(x.unrecordedValue))+'</td><td>'+(x.potentialLoss===null?'—':money(x.potentialLoss))+'</td></tr>'));
  window.currentSalesReconciliation={day,rows};
 };
 window.exportSalesReconciliation=function(){
  const r=window.currentSalesReconciliation;if(!r)return alert('Load a date and reconciliation first.');
- const rows=[['Date','Product','Opening','Added','Expected sold','Saved sales','Missing','Excess','Missing value KSh','Physical close','Status']];
- r.rows.forEach(x=>rows.push([r.day,x.p.name,x.opening,x.added,x.expectedSold,x.systemSold,x.missing,x.excess,x.missingValue,x.physical,x.physical===null?'Awaiting count':x.missing>0.0005?'Missing sales':x.excess>0.0005?'Check excess':'Balanced']));
- const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\\r\\n');download('\\uFEFF'+csv,'club-neon-stock-check-'+r.day+'.csv','text/csv;charset=utf-8');
+ const rows=[['Date','Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Stock variance','Short-sales value KSh','Unrecorded value at cost KSh','Potential loss at cost KSh']];
+ r.rows.forEach(x=>rows.push([r.day,x.p.name,x.lastClose,x.opening,x.added,x.sold,x.systemSold,x.unallocatedSales,x.expectedClose,x.physical,x.stockVariance,x.unallocatedSalesValue,x.unrecordedValue,x.potentialLoss]));
+ const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\\r\\n');
+ download('\\uFEFF'+csv,'club-neon-stock-check-'+r.day+'.csv','text/csv;charset=utf-8');
 };
+
 window.recordDailyStockTakeProduct=async function(pid){
  $('stockTakeProduct').value=pid;populateDailyStockTakeInputs();
  $('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});
