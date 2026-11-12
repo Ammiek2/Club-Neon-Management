@@ -1317,7 +1317,7 @@ window.updateDailyStockTakePreview=function(){
  if(el)el.innerHTML=
   '<div class="card"><div class="muted">Last closing stock (previous date)</div><div class="metric">'+fmt(lastClose)+'</div><div class="hint">Value at buying cost: '+cash(lastClose,p?.buying_cost)+'</div></div>'+
   '<div class="card"><div class="muted">Opening stock (actual)</div><div class="metric">'+fmt(opening)+'</div><div class="hint">Value at buying cost: '+cash(opening,p?.buying_cost)+'</div></div>'+
-  '<div class="card"><div class="muted">Unrecorded opening stock</div><div class="metric">'+fmt(openingShort)+'</div><div class="hint">Unexplained value at cost: '+cash(openingShort,p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Unrecorded opening stock</div><div class="metric">'+fmt(openingShort)+'</div><div class="hint">Unexplained value at cost: '+cash(openingShort,p?.buying_cost)+'; possible sale value: '+cash(openingShort,p?.selling_price)+'</div></div>'+
   '<div class="card"><div class="muted">Stock added</div><div class="metric">'+fmt(added)+'</div><div class="hint">Purchase value at cost: '+cash(added,p?.buying_cost)+'</div></div>'+
   '<div class="card"><div class="muted">Sold quantity</div><div class="metric">'+fmt(sold)+'</div><div class="hint">Saved sales: '+(pid?money(sales.filter(x=>x.product_id===pid&&date(x.created_at)===day).reduce((n,x)=>n+Number(x.total||0),0)):'—')+'</div></div>'+
   '<div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+fmt(expectedClosing)+'</div></div>'+
@@ -1414,6 +1414,7 @@ window.loadDailyStockTakes=async function(silent=false){
   const missingSales=x?Math.max(0,sold-actualQty):0;
   const saleValue=actualValue+missingSales*Number(p.selling_price||0);
   const unrecordedCost=unrecorded===null?null:unrecorded*Number(p.buying_cost||0);
+  const possibleShortSaleValue=unrecorded===null?null:unrecorded*Number(p.selling_price||0);
   const shortSalesValue=missingSales*Number(p.selling_price||0);
   const potentialLoss=stockVariance===null?null:Math.max(0,stockVariance)*Number(p.buying_cost||0);
   const qtyMoney=(q,amount,basis)=>q===null?'—':q.toFixed(3)+'<div class="muted">'+(amount===null?'—':money(amount))+' '+basis+'</div>';
@@ -1428,6 +1429,7 @@ window.loadDailyStockTakes=async function(silent=false){
    '<td>'+qtyMoney(sold,saleValue,'sales')+'</td>'+
    '<td>'+qtyMoney(physical,physical===null?null:physical*Number(p.buying_cost||0),'cost')+'</td>'+
    '<td>'+qtyMoney(unrecorded,unrecordedCost,'cost')+'</td>'+
+   '<td>'+(possibleShortSaleValue===null?'—':money(possibleShortSaleValue))+'</td>'+
    '<td>'+qtyMoney(missingSales,shortSalesValue,'sales')+'</td>'+
    '<td>'+qtyMoney(stockVariance,stockVariance===null?null:Math.abs(stockVariance)*Number(p.buying_cost||0),'cost')+'</td>'+
    '<td>'+money(saleValue)+'</td><td>'+(unrecordedCost===null?'—':money(unrecordedCost))+'</td><td>'+(potentialLoss===null?'—':money(potentialLoss))+'</td>'+
@@ -1437,7 +1439,7 @@ window.loadDailyStockTakes=async function(silent=false){
   ...ds.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
- $('dailyStockTakeTable').innerHTML=tbl(['Product','Last closing','Opening','Added','Sold','Physical close','Unrecorded stock','Short sales*','Stock variance','Sales value','Unrecorded value','Potential loss','Note / explanation','Actions'],rows);
+ $('dailyStockTakeTable').innerHTML=tbl(['Product','Last closing','Opening','Added','Sold','Physical close','Unrecorded stock','Possible sale value','Short sales*','Stock variance','Sales value','Unrecorded value (cost)','Potential loss (cost)','Note / explanation','Actions'],rows);
  const {data:noteStatusRows,error:noteStatusError}=await sb.from('sale_note_statuses').select('*').eq('business_id',bid);
  saleNoteStatuses=noteStatusError?[]:(noteStatusRows||[]);
  const notedSales=sales.filter(x=>date(x.created_at)===day&&String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
