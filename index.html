@@ -165,8 +165,7 @@ main{padding:10px}
 <div class="layout">
 <nav id="mainNav" class="hidden">
  <button class="active" data-page="dashboard" data-admin="1">Dashboard</button>
- <button data-page="sales">Sales</button>
- <button data-page="stock">Stock & products</button>
+ <button data-page="stock">Sales & Stock</button>
  <button data-page="expenses" data-admin="1">Expenses</button>
  <button data-page="reports" data-admin="1">Reports</button>
  <button data-page="staff" data-admin="1">Staff & PINs</button>
@@ -265,8 +264,12 @@ main{padding:10px}
   <div class="panel"><h2>Recent sales</h2><div id="recent" class="tablewrap"></div></div>
  </section>
 
- <section id="sales" class="page hidden">
-  <h1>Record sale</h1>
+ 
+
+ <section id="stock" class="page hidden">
+  <h1>Sales & Stock</h1>
+  <p class="hint">Record sales, stock received, cashier book figures and physical stock from this single working screen.</p>
+  <h2>Record sale</h2>
   <div class="panel">
    <div class="grid">
     <div class="field"><label for="saleProductSearch">Find product (type to search)</label><input id="saleProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterSaleProducts()"></div><div class="field"><label>Product</label><select id="sp" onchange="updateSalePrice()"></select></div>
@@ -280,10 +283,6 @@ main{padding:10px}
    <p id="smsg" class="hint"></p>
   </div>
   <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Every sale with a note is listed here across all dates. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></div>
- </section>
-
- <section id="stock" class="page hidden">
-  <h1>Stock & products</h1>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Counter stock ledger — daily take</h2>
    <p class="hint">This is the movement record for drinks at the counter: opening stock + stock received − sold − wastage ± corrections = expected counter balance. Enter the actual physical count separately to see the difference. Sales and Stock-in records feed this ledger automatically. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to mark an issue on this date only. Notes and flags from another date will not carry into this date. Flags are visual reminders only and never block recording, editing, sales or stock updates. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
@@ -291,8 +290,10 @@ main{padding:10px}
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label for="stockTakeProductSearch">Find product (type to search)</label><input id="stockTakeProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterStockTakeProducts()"></div><div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
-    <div class="field"><label>Expected opening (previous expected close)</label><input id="stOpening" type="number" min="0" step="0.001" value="0" readonly></div>
-    <div class="field"><label>Cashier book opening (what the cashier wrote)</label><input id="stBookOpening" type="number" min="0" step="0.001" placeholder="Enter cashier book opening" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Expected opening (last actual physical close carried forward)</label><input id="stOpening" type="number" min="0" step="0.001" value="0" readonly></div>
+    <div class="field"><label>Cashier book opening</label><input id="stBookOpening" type="number" min="0" step="0.001" placeholder="Opening written by cashier" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Cashier book sold</label><input id="stBookSold" type="number" min="0" step="0.001" placeholder="Quantity cashier recorded sold" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Cashier book closing (optional)</label><input id="stBookClosing" type="number" min="0" step="0.001" placeholder="Closing written by cashier" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
     <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
@@ -302,7 +303,7 @@ main{padding:10px}
    <div class="cards" id="stockTakeLivePreview" aria-live="polite"></div>
    <p class="hint">Stock received, sales and stock corrections are included automatically. Expected counter balance = opening + added − sold − wastage ± corrections. The expected balance carries forward to the next recorded date. Physical closing must be the quantity you actually count at the counter; it is never guessed from the expected balance.
    <div class="cards"><div class="card"><div class="muted">Sales for selected date</div><div class="metric" id="dailyStockSalesTotal">KSh 0</div></div><div class="card"><div class="muted">Quantity sold</div><div class="metric" id="dailyStockSoldTotal">0</div></div><div class="card"><div class="muted">Stock received</div><div class="metric" id="dailyStockAddedTotal">0</div></div></div></p>
-   <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="saveCounterBookOpening()">Save / update cashier book opening</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
+   <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="saveCounterBookOpening()">Save cashier book figures</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
    <div id="dailyStockTakeTable" class="tablewrap"></div>
    <div class="panel hidden" id="periodStockTakeSummary" style="margin-top:14px">
@@ -1301,10 +1302,12 @@ window.populateDailyStockTakeInputs=function(){
   $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);$('stNote').value=old.note||'';
  }else{
   const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);
-  $('stOpening').value=prev?Number(prev.closing_qty||0).toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
+  $('stOpening').value=prev?Number(prev.physical_closing_qty??prev.closing_qty??0).toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
   $('stWastage').value='0';$('stClosing').value='';$('stNote').value='';
  }
- $('stBookOpening').value=book?Number(book.cashier_opening_qty||0).toFixed(3):'';
+ $('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';
+ $('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';
+ $('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';
  window.updateDailyStockTakePreview();
 };
 window.loadDailyStockTakes=async function(silent=false){
@@ -1312,7 +1315,7 @@ window.loadDailyStockTakes=async function(silent=false){
  const day=$('stockTakeDate').value||date(new Date());
  const [currentResult,historyResult,bookResult]=await Promise.all([
   sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true}),
-  sb.from('daily_stock_takes').select('product_id,collection_date,opening_qty,stock_added,sold_qty,wastage_qty,closing_qty').eq('business_id',bid).lt('collection_date',day).order('collection_date',{ascending:false}).range(0,9999),
+  sb.from('daily_stock_takes').select('product_id,collection_date,opening_qty,stock_added,sold_qty,wastage_qty,closing_qty,physical_closing_qty,stock_adjustment_qty').eq('business_id',bid).lt('collection_date',day).order('collection_date',{ascending:false}).range(0,9999),
   sb.from('counter_book_openings').select('*').eq('business_id',bid).eq('collection_date',day)
  ]);
  const {data,error}=currentResult;
@@ -1370,7 +1373,7 @@ window.loadDailyStockTakes=async function(silent=false){
   const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
   const sold=x?Number(x.sold_qty||0):figures.sold;
   const added=x?Number(x.stock_added||0):figures.added;
-  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.closing_qty||0):Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
+  const previous=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day);const opening=x?Number(x.opening_qty||0):previous?Number(previous.physical_closing_qty??previous.closing_qty??0):Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
   const wastage=x?Number(x.wastage_qty||0):0;
   const adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
   const expected=opening+added-sold-wastage+adjustment;
@@ -1412,16 +1415,15 @@ window.loadDailyStockTakes=async function(silent=false){
 };
 
 window.saveCounterBookOpening=async function(){
- const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value,raw=$('stBookOpening').value;
- if(!day||!pid||raw.trim()==='')return alert('Enter the cashier book opening quantity first.');
- const qty=Number(raw);
- if(!Number.isFinite(qty)||qty<0||Math.round(qty*1000)!==qty*1000)return alert('Enter a valid cashier book opening quantity (up to 3 decimal places).');
- const existing=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day);
- if(existing&&!confirm('A cashier book opening already exists for this product and date. Update it from '+Number(existing.cashier_opening_qty||0)+' to '+qty+'?'))return;
- const {error}=await sb.from('counter_book_openings').upsert({business_id:bid,collection_date:day,product_id:pid,cashier_opening_qty:qty,updated_at:new Date().toISOString()},{onConflict:'business_id,collection_date,product_id'});
- if(error)return alert('Could not save cashier book opening: '+error.message);
- notify('Cashier book opening saved separately. It does not change expected stock, sales or live stock.');
- await loadDailyStockTakes(true);
+ const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;
+ const fields=[['cashier_opening_qty','stBookOpening','opening'],['cashier_sold_qty','stBookSold','sold'],['cashier_closing_qty','stBookClosing','closing']];
+ if(!day||!pid)return alert('Choose a date and product first.');
+ const payload={business_id:bid,collection_date:day,product_id:pid,updated_at:new Date().toISOString()};let entered=0;
+ for(const [column,id,label] of fields){const raw=$(id).value.trim();if(raw===''){payload[column]=null;continue;}const qty=Number(raw);if(!Number.isFinite(qty)||qty<0||Math.round(qty*1000)!==qty*1000)return alert('Enter a valid cashier book '+label+' quantity (up to 3 decimal places).');payload[column]=qty;entered++;}
+ if(!entered)return alert('Enter at least one cashier book figure before saving.');
+ const existing=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day);if(existing&&!confirm('A cashier book record already exists for this product and date. Update the saved cashier figures with the values currently entered?'))return;
+ const {error}=await sb.from('counter_book_openings').upsert(payload,{onConflict:'business_id,collection_date,product_id'});if(error)return alert('Could not save cashier book figures: '+error.message);
+ notify('Cashier book figures saved separately. Stock, sales and historical transaction records were not changed.');await loadDailyStockTakes(true);
 };
 window.recordDailyStockTakeProduct=async function(pid){
  $('stockTakeProduct').value=pid;populateDailyStockTakeInputs();
@@ -1468,7 +1470,7 @@ window.saveDailyStockTake=async function(){
  notify((wasSaved?'Daily stock take corrected. ':'Daily stock take recorded. ')+'Calculated closing stock and all later opening balances have been recalculated. Physical closing is kept separately for comparison.');
  await refreshAll();
 };
-window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);const book=counterBookOpenings.find(z=>z.product_id===x.product_id&&z.collection_date===x.collection_date);$('stBookOpening').value=book?Number(book.cashier_opening_qty||0).toFixed(3):'';$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
+window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);const book=counterBookOpenings.find(z=>z.product_id===x.product_id&&z.collection_date===x.collection_date);$('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';$('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';$('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
 window.selectDailyStockTakeProduct=function(pid){
  $('stockTakeProduct').value=pid;
  populateDailyStockTakeInputs();
@@ -2065,6 +2067,7 @@ function download(data,name,type){
 }
 
 window.go=function(p){
+ if(p==='sales')p='stock';
  if(role==='staff'&&!['sales','stock'].includes(p))return;
  document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
  $(p).classList.remove('hidden');
