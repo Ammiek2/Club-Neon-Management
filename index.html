@@ -290,7 +290,7 @@ main{padding:10px}
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label for="stockTakeProductSearch">Find product (type to search)</label><input id="stockTakeProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterStockTakeProducts()"></div><div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
-    <div class="field"><label>Expected opening (last actual physical close carried forward)</label><input id="stOpening" type="number" min="0" step="0.001" value="0" readonly></div>
+    <div class="field"><label>Opening stock (auto-carried from last physical close; enter initial opening if none exists)</label><input id="stOpening" type="number" min="0" step="0.001" value="" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Cashier book opening</label><input id="stBookOpening" type="number" min="0" step="0.001" placeholder="Opening written by cashier" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Cashier book sold</label><input id="stBookSold" type="number" min="0" step="0.001" placeholder="Quantity cashier recorded sold" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Cashier book closing (optional)</label><input id="stBookClosing" type="number" min="0" step="0.001" placeholder="Closing written by cashier" oninput="updateDailyStockTakePreview()"></div>
@@ -1306,24 +1306,25 @@ window.filterStockTakeProducts=function(silent=false){
  if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
 };
 window.updateDailyStockTakePreview=function(){
- const opening=Number($('stOpening')?.value||0),bookRaw=$('stBookOpening')?.value,bookOpening=bookRaw!==''&&Number.isFinite(Number(bookRaw))?Number(bookRaw):null,added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
+ const openingRaw=$('stOpening')?.value||'',opening=openingRaw.trim()!==''&&Number.isFinite(Number(openingRaw))?Number(openingRaw):null,bookRaw=$('stBookOpening')?.value,bookOpening=bookRaw!==''&&Number.isFinite(Number(bookRaw))?Number(bookRaw):null,added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
  const day=$('stockTakeDate')?.value||date(new Date()),pid=$('stockTakeProduct')?.value;
  const adjustment=pid?Number(dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day)?.stock_adjustment_qty??window.dailyStockFigures(pid,day).adjustment??0):0;
- const expected=opening+added-sold-wastage+adjustment;
+ const expected=opening===null?null:opening+added-sold-wastage+adjustment;
  const raw=$('stClosing')?.value,physical=raw!==''&&Number.isFinite(Number(raw))?Number(raw):null;
- const difference=physical===null?null:physical-expected,el=$('stockTakeLivePreview');
- if(el)el.innerHTML='<div class="card"><div class="muted">Expected opening</div><div class="metric">'+opening.toFixed(3)+'</div></div><div class="card"><div class="muted">Cashier book opening</div><div class="metric">'+(bookOpening===null?'Not entered':bookOpening.toFixed(3))+'</div></div><div class="card"><div class="muted">Opening shortage / excess</div><div class="metric">'+(bookOpening===null?'—':(opening-bookOpening>0?'SHORT ':opening-bookOpening<0?'EXTRA ':'')+Math.abs(opening-bookOpening).toFixed(3))+'</div></div><div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+expected.toFixed(3)+'</div></div><div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':physical.toFixed(3))+'</div></div><div class="card"><div class="muted">Physical difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
+ const difference=physical===null||expected===null?null:physical-expected,el=$('stockTakeLivePreview');
+ if(el)el.innerHTML='<div class="card"><div class="muted">Expected opening</div><div class="metric">'+(opening===null?'Enter initial opening':opening.toFixed(3))+'</div></div><div class="card"><div class="muted">Cashier book opening</div><div class="metric">'+(bookOpening===null?'Not entered':bookOpening.toFixed(3))+'</div></div><div class="card"><div class="muted">Opening shortage / excess</div><div class="metric">'+(bookOpening===null||opening===null?'—':(opening-bookOpening>0?'SHORT ':opening-bookOpening<0?'EXTRA ':'')+Math.abs(opening-bookOpening).toFixed(3))+'</div></div><div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+(expected===null?'—':expected.toFixed(3))+'</div></div><div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':physical.toFixed(3))+'</div></div><div class="card"><div class="muted">Physical difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
 };
 window.populateDailyStockTakeInputs=function(){
  const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;
- const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),book=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day),p=products.find(x=>x.id===pid);
+ const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),book=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day);
  $('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
  if(old){
-  $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
+  $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stOpening').readOnly=true;$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
   $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);$('stNote').value=old.note||'';
  }else{
   const carried=window.openingFromLastPhysicalClose(pid,day);
-  $('stOpening').value=carried!==null?carried.toFixed(3):Math.max(0,Number(p?.stock||0)-v.added+v.sold).toFixed(3);
+  $('stOpening').readOnly=carried!==null;
+  $('stOpening').value=carried!==null?carried.toFixed(3):'';
   $('stWastage').value='0';$('stClosing').value='';$('stNote').value='';
  }
  $('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';
@@ -1396,17 +1397,17 @@ window.loadDailyStockTakes=async function(silent=false){
   const actualValue=actual.reduce((a,z)=>a+Number(z.total||0),0);
   const sold=x?Number(x.sold_qty||0):figures.sold;
   const added=x?Number(x.stock_added||0):figures.added;
-  const carried=window.openingFromLastPhysicalClose(p.id,day);const opening=x?Number(x.opening_qty||0):carried!==null?carried:Math.max(0,Number(p.stock||0)-added+sold-figures.adjustment);
+  const carried=window.openingFromLastPhysicalClose(p.id,day);const opening=x?Number(x.opening_qty||0):carried!==null?carried:null;
   const wastage=x?Number(x.wastage_qty||0):0;
   const adjustment=Number(x?.stock_adjustment_qty??figures.adjustment??0);
-  const expected=opening+added-sold-wastage+adjustment;
+  const expected=opening===null?null:opening+added-sold-wastage+adjustment;
   const missing=x?Math.max(0,sold-actualQty):0;
   const value=actualValue+missing*Number(p.selling_price||0);
   const current=Number(p.stock||0);
   const physical=x&&x.physical_closing_qty!==null&&x.physical_closing_qty!==undefined?Number(x.physical_closing_qty):null;
   const book=counterBookOpenings.find(z=>z.product_id===p.id&&z.collection_date===day);
   const bookOpening=book?Number(book.cashier_opening_qty||0):null;
-  const openingVariance=bookOpening===null?null:opening-bookOpening;
+  const openingVariance=bookOpening===null||opening===null?null:opening-bookOpening;
   const recordAction=x?`<button class="secondary small" onclick="editDailyStockTake('${x.id}')">Edit</button> ${role==='admin'?'<button class="danger small" onclick="deleteDailyStockTake(\''+x.id+'\')">Delete</button>':''}`:`<button class="small" onclick="recordDailyStockTakeProduct('${p.id}')">Record</button>`;
   const flagAction=flagged
    ?`<button class="secondary small" onclick="resolveDailyStockTakeIssue('${flag.id}')">Resolve issue</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
@@ -1414,7 +1415,7 @@ window.loadDailyStockTakes=async function(silent=false){
     ?`<span class="resolved-label">Resolved</span> <button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Reopen</button> ${role==='admin'?'<button class="danger small" onclick="unflagDailyStockTakeFlag(\''+flag.id+'\')">Unflag</button>':''}`
     :`<button class="secondary small" onclick="flagDailyStockTakeIssue('${p.id}')">Flag for explanation</button>`;
   const noteText=flagged?'NEEDS EXPLANATION: '+flag.reason:flag?.status==='resolved'?'RESOLVED: '+(flag.resolution_note||flag.reason):x?.note||(x?'':'Not yet recorded');
-  return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+opening.toFixed(3)+'</td><td>'+(bookOpening===null?'—':bookOpening.toFixed(3))+'</td><td>'+(openingVariance===null?'—':(openingVariance>0?'SHORT ':openingVariance<0?'EXTRA ':'')+Math.abs(openingVariance).toFixed(3))+'</td><td>'+added.toFixed(3)+' </td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+adjustment.toFixed(3)+'</td><td>'+expected.toFixed(3)+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
+  return '<tr class="'+(flagged?'issue-flagged':flag?.status==='resolved'?'issue-resolved':'')+'"><td>'+esc(p.name)+(p.active===false?' (Archived)':'')+'</td><td>'+(opening===null?'SET OPENING':opening.toFixed(3))+'</td><td>'+(bookOpening===null?'—':bookOpening.toFixed(3))+'</td><td>'+(openingVariance===null?'—':(openingVariance>0?'SHORT ':openingVariance<0?'EXTRA ':'')+Math.abs(openingVariance).toFixed(3))+'</td><td>'+added.toFixed(3)+' </td><td>'+sold.toFixed(3)+'</td><td>'+wastage.toFixed(3)+'</td><td>'+adjustment.toFixed(3)+'</td><td>'+(expected===null?'—':expected.toFixed(3))+'</td><td>'+(physical===null?'—':physical.toFixed(3))+'</td><td>'+(physical===null||expected===null?'—':(physical-expected).toFixed(3))+'</td><td>'+money(value)+'</td><td>'+missing.toFixed(3)+'</td><td>'+current.toFixed(3)+'</td><td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
  });
  $('salesTable').innerHTML=tbl(['Date','Product','Qty','Total','Payment','Staff','Actions'],[
   ...ds.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
@@ -1441,12 +1442,12 @@ window.loadDailyStockTakes=async function(silent=false){
 window.renderSalesReconciliation=function(day){
  const rows=products.map(p=>{
   const take=dailyStockTakes.find(z=>z.product_id===p.id),book=counterBookOpenings.find(z=>z.product_id===p.id),fig=window.dailyStockFigures(p.id,day),carried=window.openingFromLastPhysicalClose(p.id,day);
-  const opening=take?Number(take.opening_qty||0):carried!==null?carried:Math.max(0,Number(p.stock||0)-fig.added+fig.sold-fig.adjustment);
+  const opening=take?Number(take.opening_qty||0):carried!==null?carried:null;
   const added=take?Number(take.stock_added||0):fig.added,wastage=Number(take?.wastage_qty||0),adjustment=Number(take?.stock_adjustment_qty??fig.adjustment??0);
   const physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
   const cashierOpening=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty):null,cashierSold=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty):null,cashierClosing=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty):null;
   const tx=sales.filter(z=>z.product_id===p.id&&date(z.created_at)===day),systemSold=tx.reduce((n,z)=>n+Number(z.quantity||0),0),systemValue=tx.reduce((n,z)=>n+Number(z.total||0),0);
-  const expectedRaw=physical===null?null:(cashierOpening===null?opening:cashierOpening)+added+adjustment-wastage-physical,expectedSold=expectedRaw===null?null:Math.max(0,expectedRaw);
+  const expectedRaw=physical===null||opening===null?null:(cashierOpening===null?opening:cashierOpening)+added+adjustment-wastage-physical,expectedSold=expectedRaw===null?null:Math.max(0,expectedRaw);
   const missing=expectedSold===null?null:Math.max(0,expectedSold-systemSold),excess=expectedSold===null?null:Math.max(0,systemSold-expectedSold),openingGap=cashierOpening===null?null:opening-cashierOpening,bookCloseGap=cashierClosing===null||physical===null?null:cashierClosing-physical,cashierVsExpected=cashierSold===null||expectedSold===null?null:expectedSold-cashierSold,cashierVsSystem=cashierSold===null?null:cashierSold-systemSold;
   return {p,take,book,opening,added,wastage,adjustment,physical,cashierOpening,cashierSold,cashierClosing,systemSold,systemValue,expectedSold,missing,excess,openingGap,bookCloseGap,cashierVsExpected,cashierVsSystem,missingValue:missing===null?null:missing*Number(p.selling_price||0),cashierName:book?.cashier_name||[...new Set(tx.map(z=>String(z.staff_name||'').trim()).filter(Boolean))].join(', ')};
  });
@@ -1510,8 +1511,8 @@ window.resolveDailyStockTakeIssue=async function(id){
 window.saveDailyStockTake=async function(){
  if(!role)return;
  const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value;
- const opening=Number($('stOpening').value),sold=Number($('stSold').value),wastage=Number($('stWastage').value),physicalRaw=$('stClosing').value,closing=Number(physicalRaw);
- if(!day||!pid||physicalRaw.trim()===''||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter the actual physical quantity counted at the counter, using up to 3 decimal places.');
+ const openingRaw=$('stOpening').value,opening=Number(openingRaw),sold=Number($('stSold').value),wastage=Number($('stWastage').value),physicalRaw=$('stClosing').value,closing=Number(physicalRaw);
+ if(!day||!pid||openingRaw.trim()===''||physicalRaw.trim()===''||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter the opening stock (if no earlier physical closing exists) and the actual physical quantity counted, using up to 3 decimal places.');
  const existingTake=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);
  const wasSaved=!!existingTake;
  if(existingTake&&!confirm('A stock record for this product already exists on '+formatDate(day)+'.\n\nExisting: opening '+Number(existingTake.opening_qty||0)+', sold '+Number(existingTake.sold_qty||0)+', physical close '+(existingTake.physical_closing_qty??'not entered')+'.\n\nContinue and UPDATE that same daily record with these values? Choose Cancel to keep the existing record unchanged.'))return;
