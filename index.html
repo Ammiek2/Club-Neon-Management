@@ -1278,7 +1278,7 @@ window.openingFromLastPhysicalClose=function(pid,day){
  const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);if(!prev)return null;
  const base=Number(prev.physical_closing_qty??prev.closing_qty??0),from=prev.collection_date;
  const incoming=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='stock_in').reduce((n,m)=>n+Number(m.quantity||0),0);
- const corrections=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='correction').reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);
+ const corrections=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='correction').reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);
  const sold=sales.filter(x=>x.product_id===pid&&date(x.created_at)>from&&date(x.created_at)<day).reduce((n,x)=>n+Number(x.quantity||0),0);
  return base+incoming+corrections-sold;
 };
