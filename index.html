@@ -1306,28 +1306,49 @@ window.filterStockTakeProducts=function(silent=false){
  if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
 };
 window.updateDailyStockTakePreview=function(){
- const openingRaw=$('stOpening')?.value||'',opening=openingRaw.trim()!==''&&Number.isFinite(Number(openingRaw))?Number(openingRaw):null,bookRaw=$('stBookOpening')?.value,bookOpening=bookRaw!==''&&Number.isFinite(Number(bookRaw))?Number(bookRaw):null,added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
+ const openingRaw=$('stOpening')?.value||'',opening=openingRaw.trim()!==''&&Number.isFinite(Number(openingRaw))?Number(openingRaw):null;
+ const bookRaw=$('stBookOpening')?.value||'',bookOpening=bookRaw.trim()!==''&&Number.isFinite(Number(bookRaw))?Number(bookRaw):null;
+ const bookSoldRaw=$('stBookSold')?.value||'',bookSold=bookSoldRaw.trim()!==''&&Number.isFinite(Number(bookSoldRaw))?Number(bookSoldRaw):null;
+ const added=Number($('stAdded')?.value||0),sold=Number($('stSold')?.value||0),wastage=Number($('stWastage')?.value||0);
  const day=$('stockTakeDate')?.value||date(new Date()),pid=$('stockTakeProduct')?.value;
  const adjustment=pid?Number(dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day)?.stock_adjustment_qty??window.dailyStockFigures(pid,day).adjustment??0):0;
- const expected=opening===null?null:opening+added-sold-wastage+adjustment;
  const raw=$('stClosing')?.value,physical=raw!==''&&Number.isFinite(Number(raw))?Number(raw):null;
- const difference=physical===null||expected===null?null:physical-expected,el=$('stockTakeLivePreview');
- if(el)el.innerHTML='<div class="card"><div class="muted">Expected opening</div><div class="metric">'+(opening===null?'Enter initial opening':opening.toFixed(3))+'</div></div><div class="card"><div class="muted">Cashier book opening</div><div class="metric">'+(bookOpening===null?'Not entered':bookOpening.toFixed(3))+'</div></div><div class="card"><div class="muted">Opening shortage / excess</div><div class="metric">'+(bookOpening===null||opening===null?'—':(opening-bookOpening>0?'SHORT ':opening-bookOpening<0?'EXTRA ':'')+Math.abs(opening-bookOpening).toFixed(3))+'</div></div><div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+(expected===null?'—':expected.toFixed(3))+'</div></div><div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':physical.toFixed(3))+'</div></div><div class="card"><div class="muted">Physical difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
+ const expectedClosing=opening===null?null:opening+added-sold-wastage+adjustment;
+ const openingVariance=opening===null||bookOpening===null?null:opening-bookOpening;
+ const expectedBookSold=bookOpening===null||physical===null?null:bookOpening+added+adjustment-wastage-physical;
+ const systemSold=pid?sales.filter(x=>x.product_id===pid&&date(x.created_at)===day).reduce((n,x)=>n+Number(x.quantity||0),0):0;
+ const missing=expectedBookSold===null?null:Math.max(0,expectedBookSold-systemSold);
+ const cashierSoldVariance=expectedBookSold===null||bookSold===null?null:expectedBookSold-bookSold;
+ const difference=physical===null||expectedClosing===null?null:physical-expectedClosing,el=$('stockTakeLivePreview');
+ const fmt=n=>n===null?'—':Number(n).toFixed(3);
+ if(el)el.innerHTML=
+  '<div class="card"><div class="muted">System opening (last physical close)</div><div class="metric">'+(opening===null?'No earlier close':fmt(opening))+'</div></div>'+
+  '<div class="card"><div class="muted">Cashier book opening (editable)</div><div class="metric">'+(bookOpening===null?'Enter book figure':fmt(bookOpening))+'</div></div>'+
+  '<div class="card"><div class="muted">Opening shortage / excess</div><div class="metric">'+(openingVariance===null?'—':(openingVariance>0?'SHORT ':openingVariance<0?'EXTRA ':'')+Math.abs(openingVariance).toFixed(3))+'</div></div>'+
+  '<div class="card"><div class="muted">Cashier book expected sold</div><div class="metric">'+fmt(expectedBookSold)+'</div></div>'+
+  '<div class="card"><div class="muted">Potential missing sales records</div><div class="metric">'+fmt(missing)+'</div></div>'+
+  '<div class="card"><div class="muted">Cashier sold vs expected</div><div class="metric">'+(cashierSoldVariance===null?'—':(cashierSoldVariance>0?'SHORT ':cashierSoldVariance<0?'EXTRA ':'')+Math.abs(cashierSoldVariance).toFixed(3))+'</div></div>'+
+  '<div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+fmt(expectedClosing)+'</div></div>'+
+  '<div class="card"><div class="muted">Physical count</div><div class="metric">'+(physical===null?'Not entered':fmt(physical))+'</div></div>'+
+  '<div class="card"><div class="muted">Physical difference (physical − expected)</div><div class="metric">'+(difference===null?'—':(difference>0?'+':'')+difference.toFixed(3))+'</div></div>';
 };
 window.populateDailyStockTakeInputs=function(){
  const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;
  const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),book=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day);
+ const carried=window.openingFromLastPhysicalClose(pid,day);
+ const openingSuggestion=old?Number(old.opening_qty||0):carried;
  $('stAdded').value=v.added.toFixed(3);$('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
  if(old){
   $('stOpening').value=Number(old.opening_qty||0).toFixed(3);$('stOpening').readOnly=true;$('stWastage').value=Number(old.wastage_qty||0).toFixed(3);
   $('stClosing').value=old.physical_closing_qty===null||old.physical_closing_qty===undefined?'':Number(old.physical_closing_qty).toFixed(3);$('stNote').value=old.note||'';
  }else{
-  const carried=window.openingFromLastPhysicalClose(pid,day);
   $('stOpening').readOnly=carried!==null;
   $('stOpening').value=carried!==null?carried.toFixed(3):'';
   $('stWastage').value='0';$('stClosing').value='';$('stNote').value='';
  }
- $('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';
+ const savedBookOpening=book&&book.cashier_opening_qty!==null&&book.cashier_opening_qty!==undefined?Number(book.cashier_opening_qty):null;
+ const cashierOpeningDefault=savedBookOpening!==null?savedBookOpening:openingSuggestion;
+ $('stBookOpening').value=cashierOpeningDefault===null?'':Number(cashierOpeningDefault).toFixed(3);
  $('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';
  $('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';
  $('stBookCashier').value=book?.cashier_name|| (role==='staff'?currentStaffName||'':'');
