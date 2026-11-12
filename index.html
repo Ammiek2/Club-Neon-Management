@@ -282,7 +282,7 @@ main{padding:10px}
    <div class="actions"><button onclick="recordSale()">Save sale</button></div>
    <p id="smsg" class="hint"></p>
   </div>
-  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Every sale with a note is listed here across all dates. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></div>
+  <div class="panel"><h2>Sales history</h2><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div><div class="panel sales-notes-panel"><h3>Sales notes &amp; issues tracker</h3><p class="hint">Only sales notes belonging to the selected date are listed here. Amber means still needs attention; green means resolved. Marking or reopening only changes this tracker status; it never edits the sale or stock.</p><div id="salesNotesTracker"></div></div></div>
   <div class="panel" id="dailyStockTakePanel">
    <h2>Counter stock ledger — daily take</h2>
    <p class="hint">This is the movement record for drinks at the counter: opening stock + stock received − sold − wastage ± corrections = expected counter balance. Enter the actual physical count separately to see the difference. Sales and Stock-in records feed this ledger automatically. Tap Record to enter the physical closing count and save that product. Use Flag for explanation to mark an issue on this date only. Notes and flags from another date will not carry into this date. Flags are visual reminders only and never block recording, editing, sales or stock updates. Decimal quantities such as 0.5 and 0.25 are supported here.</p>
@@ -1273,14 +1273,24 @@ window.changeCollectionDate=async function(){
  await loadDailyStockTakes(true);
 };
 window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);};
-window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='correction'),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
+window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&['correction','sale_adjustment'].includes(String(x.movement_type).toLowerCase())),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{if(String(m.movement_type).toLowerCase()==='sale_adjustment')return n+Number(m.quantity||0);const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.openingFromLastPhysicalClose=function(pid,day){
- const prev=dailyStockTakeHistory.find(x=>x.product_id===pid&&x.collection_date<day);if(!prev)return null;
- const base=Number(prev.physical_closing_qty??prev.closing_qty??0),from=prev.collection_date;
- const incoming=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='stock_in').reduce((n,m)=>n+Number(m.quantity||0),0);
- const corrections=moves.filter(m=>m.product_id===pid&&date(m.created_at)>from&&date(m.created_at)<day&&String(m.movement_type||'').toLowerCase()==='correction').reduce((n,m)=>{const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);
- const sold=sales.filter(x=>x.product_id===pid&&date(x.created_at)>from&&date(x.created_at)<day).reduce((n,x)=>n+Number(x.quantity||0),0);
- return base+incoming+corrections-sold;
+ // Use the latest genuine physical count before the selected date. An expected
+ // closing balance from an unclosed date must never become the carry-forward anchor.
+ const previous=dailyStockTakeHistory.filter(x=>x.product_id===pid&&x.collection_date<day&&x.physical_closing_qty!==null&&x.physical_closing_qty!==undefined).sort((a,b)=>String(b.collection_date).localeCompare(String(a.collection_date)));
+ const prev=previous[0];if(!prev)return null;
+ const from=prev.collection_date,between=d=>d>from&&d<day;
+ const movementFlow=moves.filter(m=>m.product_id===pid&&between(date(m.created_at))).reduce((n,m)=>{
+  const type=String(m.movement_type||'').toLowerCase();
+  if(type==='stock_in'||type==='sale_adjustment')return n+Number(m.quantity||0);
+  if(type==='correction'){const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);}
+  return n;
+ },0);
+ const sold=sales.filter(x=>x.product_id===pid&&between(date(x.created_at))).reduce((n,x)=>n+Number(x.quantity||0),0);
+ const unclosed=dailyStockTakeHistory.filter(x=>x.product_id===pid&&between(x.collection_date));
+ const manualSold=unclosed.reduce((n,x)=>n+Number(x.manual_sold_extra||0),0);
+ const wastage=unclosed.reduce((n,x)=>n+Number(x.wastage_qty||0),0);
+ return Number(prev.physical_closing_qty)+movementFlow-sold-manualSold-wastage;
 };
 window.filterStockTakeProducts=function(silent=false){
  const select=$('stockTakeProduct'),search=$('stockTakeProductSearch');
@@ -1328,7 +1338,7 @@ window.loadDailyStockTakes=async function(silent=false){
  const day=$('stockTakeDate').value||date(new Date());
  const [currentResult,historyResult,bookResult]=await Promise.all([
   sb.from('daily_stock_takes').select('*').eq('business_id',bid).eq('collection_date',day).order('created_at',{ascending:true}),
-  sb.from('daily_stock_takes').select('product_id,collection_date,opening_qty,stock_added,sold_qty,wastage_qty,closing_qty,physical_closing_qty,stock_adjustment_qty').eq('business_id',bid).lt('collection_date',day).order('collection_date',{ascending:false}).range(0,9999),
+  sb.from('daily_stock_takes').select('product_id,collection_date,opening_qty,stock_added,sold_qty,wastage_qty,closing_qty,physical_closing_qty,stock_adjustment_qty,manual_sold_extra').eq('business_id',bid).lt('collection_date',day).order('collection_date',{ascending:false}).range(0,9999),
   sb.from('counter_book_openings').select('*').eq('business_id',bid).eq('collection_date',day)
  ]);
  const {data,error}=currentResult;
@@ -1413,7 +1423,7 @@ window.loadDailyStockTakes=async function(silent=false){
  $('dailyStockTakeTable').innerHTML=tbl(['Product','Expected opening','Cashier book opening','Opening shortage / excess','Added','Sold','Wastage','Corrections','Expected close','Physical close','Physical difference','Sales value','Unrecorded sold qty','Counter stock now','Note','Actions'],rows);
  const {data:noteStatusRows,error:noteStatusError}=await sb.from('sale_note_statuses').select('*').eq('business_id',bid);
  saleNoteStatuses=noteStatusError?[]:(noteStatusRows||[]);
- const notedSales=sales.filter(x=>String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+ const notedSales=sales.filter(x=>date(x.created_at)===day&&String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
  $('salesNotesTracker').innerHTML=notedSales.length
   ?tbl(['Date','Product','Qty','Staff','Note / issue','Status','Action'],notedSales.map(x=>{
     const note=String(x.note||'').trim(),savedStatus=saleNoteStatuses.find(z=>z.sale_id===x.id),resolved=savedStatus?savedStatus.status==='resolved':/^\[RESOLVED\]\s*/i.test(note),clean=note.replace(/^\[RESOLVED\]\s*/i,'');
