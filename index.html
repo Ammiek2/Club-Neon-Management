@@ -294,6 +294,8 @@ main{padding:10px}
     <div class="field"><label>Cashier book opening</label><input id="stBookOpening" type="number" min="0" step="0.001" placeholder="Opening written by cashier" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Cashier book sold</label><input id="stBookSold" type="number" min="0" step="0.001" placeholder="Quantity cashier recorded sold" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Cashier book closing (optional)</label><input id="stBookClosing" type="number" min="0" step="0.001" placeholder="Closing written by cashier" oninput="updateDailyStockTakePreview()"></div>
+    <div class="field"><label>Cashier name (for accountability)</label><input id="stBookCashier" type="text" maxlength="100" placeholder="Name of cashier who made the book entry"></div>
+    <div class="field"><label>Cashier book note</label><input id="stBookNote" type="text" maxlength="300" placeholder="Optional explanation"></div>
     <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
     <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
@@ -306,6 +308,7 @@ main{padding:10px}
    <div class="actions"><button onclick="saveDailyStockTake()">Save daily stock take</button><button class="secondary" onclick="saveCounterBookOpening()">Save cashier book figures</button><button class="secondary" onclick="loadDailyStockTakes()">Reload selected date</button></div>
    <p class="hint" id="stockTakeStatus">Daily stock take records load by date.</p>
    <div id="dailyStockTakeTable" class="tablewrap"></div>
+   <div class="panel" id="salesStockReconciliationPanel"><h2>Sales reconciliation — cashier book vs expected</h2><p class="hint">Expected sales = cashier book opening (or expected opening if no cashier opening is entered) + stock received + corrections − wastage − physical closing. Compare this with cashier book sold and saved sale transactions. Shortages remain discrepancies; no sale or expense is created automatically.</p><div class="cards" id="salesReconciliationTotals"></div><div id="salesReconciliationTable" class="tablewrap"></div><div class="actions"><button class="secondary" onclick="exportSalesReconciliation()">Export reconciliation CSV</button></div></div>
    <div class="panel hidden" id="periodStockTakeSummary" style="margin-top:14px">
     <h3 id="periodStockTakeTitle">Weekly stock-taking summary</h3>
     <p class="hint" id="periodStockTakeDescription">Period totals are calculated from saved daily stock takes, sales and stock-in records. Record the physical closing count on the selected closing date using the daily entry above.</p>
@@ -1308,6 +1311,8 @@ window.populateDailyStockTakeInputs=function(){
  $('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';
  $('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';
  $('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';
+ $('stBookCashier').value=book?.cashier_name|| (role==='staff'?currentStaffName||'':'');
+ $('stBookNote').value=book?.cashier_note||'';
  window.updateDailyStockTakePreview();
 };
 window.loadDailyStockTakes=async function(silent=false){
@@ -1412,13 +1417,41 @@ window.loadDailyStockTakes=async function(silent=false){
  if($('stockTakeProduct').value)populateDailyStockTakeInputs();
  if(($('stockTakePeriod')?.value||'daily')!=='daily')await loadPeriodStockTakeSummary();
  if($('appProductSearch')?.value)window.filterAppProducts();
+ window.renderSalesReconciliation(day);
+};
+
+window.renderSalesReconciliation=function(day){
+ const rows=products.map(p=>{
+  const take=dailyStockTakes.find(z=>z.product_id===p.id),book=counterBookOpenings.find(z=>z.product_id===p.id),prev=dailyStockTakeHistory.find(z=>z.product_id===p.id&&z.collection_date<day),fig=window.dailyStockFigures(p.id,day);
+  const opening=take?Number(take.opening_qty||0):prev?Number(prev.physical_closing_qty??prev.closing_qty??0):Math.max(0,Number(p.stock||0)-fig.added+fig.sold-fig.adjustment);
+  const added=take?Number(take.stock_added||0):fig.added,wastage=Number(take?.wastage_qty||0),adjustment=Number(take?.stock_adjustment_qty??fig.adjustment??0);
+  const physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
+  const cashierOpening=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty):null,cashierSold=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty):null,cashierClosing=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty):null;
+  const tx=sales.filter(z=>z.product_id===p.id&&date(z.created_at)===day),systemSold=tx.reduce((n,z)=>n+Number(z.quantity||0),0),systemValue=tx.reduce((n,z)=>n+Number(z.total||0),0);
+  const expectedRaw=physical===null?null:(cashierOpening===null?opening:cashierOpening)+added+adjustment-wastage-physical,expectedSold=expectedRaw===null?null:Math.max(0,expectedRaw);
+  const missing=expectedSold===null?null:Math.max(0,expectedSold-systemSold),excess=expectedSold===null?null:Math.max(0,systemSold-expectedSold),openingGap=cashierOpening===null?null:opening-cashierOpening,bookCloseGap=cashierClosing===null||physical===null?null:cashierClosing-physical;
+  return {p,take,book,opening,added,wastage,adjustment,physical,cashierOpening,cashierSold,cashierClosing,systemSold,systemValue,expectedSold,missing,excess,openingGap,bookCloseGap,missingValue:missing===null?null:missing*Number(p.selling_price||0),cashierName:book?.cashier_name||[...new Set(tx.map(z=>String(z.staff_name||'').trim()).filter(Boolean))].join(', ')};
+ });
+ const complete=rows.filter(x=>x.expectedSold!==null),sum=k=>complete.reduce((n,x)=>n+Number(x[k]||0),0),fmt=v=>v===null?'—':Number(v).toFixed(3),variance=v=>v===null?'—':(v>0?'SHORT ':v<0?'EXTRA ':'')+Math.abs(v).toFixed(3);
+ $('salesReconciliationTotals').innerHTML=[['Expected sold',sum('expectedSold').toFixed(3)+' units'],['Cashier book sold',rows.reduce((n,x)=>n+Number(x.cashierSold||0),0).toFixed(3)+' units'],['System recorded sales',rows.reduce((n,x)=>n+Number(x.systemSold||0),0).toFixed(3)+' units'],['Missing sale records',sum('missing').toFixed(3)+' units'],['Value of missing records',money(sum('missingValue'))],['Awaiting physical close',rows.filter(x=>x.physical===null).length+' products']].map(([a,b])=>'<div class="sales-total"><div class="label">'+a+'</div><div class="value">'+b+'</div></div>').join('');
+ $('salesReconciliationTable').innerHTML=tbl(['Product','Expected opening','Cashier opening','Opening shortage / excess','Cashier sold','Expected sold','System sold','Missing records','Excess recorded','Missing value (KSh)','Cashier closing','Physical close','Cashier close difference','Cashier / status'],rows.map(x=>{
+  const status=x.physical===null?'AWAITING PHYSICAL CLOSE':x.missing>0.0005?'MISSING SALES RECORDS':x.excess>0.0005?'EXCESS RECORDED SALES':'BALANCED',cls=x.physical===null?'':x.missing>0.0005?'issue-flagged':x.excess>0.0005?'issue-resolved':'';
+  return '<tr class="'+cls+'"><td>'+esc(x.p.name)+'</td><td>'+fmt(x.opening)+'</td><td>'+fmt(x.cashierOpening)+'</td><td>'+variance(x.openingGap)+'</td><td>'+fmt(x.cashierSold)+'</td><td>'+fmt(x.expectedSold)+'</td><td>'+fmt(x.systemSold)+'</td><td>'+fmt(x.missing)+'</td><td>'+fmt(x.excess)+'</td><td>'+(x.missingValue===null?'—':money(x.missingValue))+'</td><td>'+fmt(x.cashierClosing)+'</td><td>'+fmt(x.physical)+'</td><td>'+variance(x.bookCloseGap)+'</td><td>'+esc(x.cashierName||'—')+' <span class="muted">'+status+'</span></td></tr>';
+ }));
+ window.currentSalesReconciliation={day,rows};
+};
+window.exportSalesReconciliation=function(){
+ const r=window.currentSalesReconciliation;if(!r)return alert('Load a date and reconciliation first.');
+ const rows=[['Date','Product','Expected opening','Cashier opening','Opening variance','Cashier sold','Expected sold','System sold','Missing records','Excess recorded','Missing value KSh','Cashier closing','Physical closing','Cashier closing variance','Cashier name','Status']];
+ r.rows.forEach(x=>rows.push([r.day,x.p.name,x.opening,x.cashierOpening,x.openingGap,x.cashierSold,x.expectedSold,x.systemSold,x.missing,x.excess,x.missingValue,x.cashierClosing,x.physical,x.bookCloseGap,x.cashierName,x.physical===null?'Awaiting physical close':x.missing>0.0005?'Missing sales records':x.excess>0.0005?'Excess recorded sales':'Balanced']));
+ const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');download('\uFEFF'+csv,'club-neon-sales-reconciliation-'+r.day+'.csv','text/csv;charset=utf-8');
 };
 
 window.saveCounterBookOpening=async function(){
  const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;
  const fields=[['cashier_opening_qty','stBookOpening','opening'],['cashier_sold_qty','stBookSold','sold'],['cashier_closing_qty','stBookClosing','closing']];
  if(!day||!pid)return alert('Choose a date and product first.');
- const payload={business_id:bid,collection_date:day,product_id:pid,updated_at:new Date().toISOString()};let entered=0;
+ const payload={business_id:bid,collection_date:day,product_id:pid,cashier_name:$('stBookCashier').value.trim()|| (role==='staff'?currentStaffName:null),cashier_note:$('stBookNote').value.trim()||null,updated_at:new Date().toISOString()};let entered=0;
  for(const [column,id,label] of fields){const raw=$(id).value.trim();if(raw===''){payload[column]=null;continue;}const qty=Number(raw);if(!Number.isFinite(qty)||qty<0||Math.round(qty*1000)!==qty*1000)return alert('Enter a valid cashier book '+label+' quantity (up to 3 decimal places).');payload[column]=qty;entered++;}
  if(!entered)return alert('Enter at least one cashier book figure before saving.');
  const existing=counterBookOpenings.find(x=>x.product_id===pid&&x.collection_date===day);if(existing&&!confirm('A cashier book record already exists for this product and date. Update the saved cashier figures with the values currently entered?'))return;
@@ -1470,7 +1503,7 @@ window.saveDailyStockTake=async function(){
  notify((wasSaved?'Daily stock take corrected. ':'Daily stock take recorded. ')+'Calculated closing stock and all later opening balances have been recalculated. Physical closing is kept separately for comparison.');
  await refreshAll();
 };
-window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);const book=counterBookOpenings.find(z=>z.product_id===x.product_id&&z.collection_date===x.collection_date);$('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';$('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';$('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
+window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);const book=counterBookOpenings.find(z=>z.product_id===x.product_id&&z.collection_date===x.collection_date);$('stBookOpening').value=book&&book.cashier_opening_qty!==null?Number(book.cashier_opening_qty).toFixed(3):'';$('stBookSold').value=book&&book.cashier_sold_qty!==null?Number(book.cashier_sold_qty).toFixed(3):'';$('stBookClosing').value=book&&book.cashier_closing_qty!==null?Number(book.cashier_closing_qty).toFixed(3):'';$('stBookCashier').value=book?.cashier_name||'';$('stBookNote').value=book?.cashier_note||'';$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
 window.selectDailyStockTakeProduct=function(pid){
  $('stockTakeProduct').value=pid;
  populateDailyStockTakeInputs();
