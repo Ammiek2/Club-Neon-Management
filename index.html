@@ -1267,7 +1267,7 @@ window.changeCollectionDate=async function(){
  await loadManualBalance(true);
  await loadDailyStockTakes(true);
 };
-window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);};
+window.changeStockTakeDate=async function(){const day=$('stockTakeDate').value||date(new Date());$('collectionDate').value=day;$('balanceDate').value=day;selectedCollectionDate=day;dailyStockTakes=[];dailyStockTakeFlags=[];render();await loadManualBalance(true);await loadDailyStockTakes(true);if($('stockTakeProduct').value)window.populateDailyStockTakeInputs();};
 window.dailyStockFigures=function(pid,day){const ss=sales.filter(x=>x.product_id===pid&&date(x.created_at)===day),mm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&String(x.movement_type).toLowerCase()==='stock_in'),cm=moves.filter(x=>x.product_id===pid&&date(x.created_at)===day&&['correction','sale_adjustment'].includes(String(x.movement_type).toLowerCase())),saved=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);const adjustment=cm.reduce((n,m)=>{if(String(m.movement_type).toLowerCase()==='sale_adjustment')return n+Number(m.quantity||0);const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);},0);return{sold:Math.max(ss.reduce((a,x)=>a+Number(x.quantity||0),0),Number(saved?.sold_qty||0)),added:mm.reduce((a,x)=>a+Number(x.quantity||0),0),adjustment,sales:ss.reduce((a,x)=>a+Number(x.total||0),0)};};
 window.openingFromLastPhysicalClose=function(pid,day){
  // Use the latest genuine physical count before the selected date. An expected
@@ -1298,7 +1298,9 @@ window.filterStockTakeProducts=function(silent=false){
   :'<option value="">No matching products found</option>';
  if(matches.some(p=>p.id===previous))select.value=previous;
  else if(matches.length)select.value=matches[0].id;
- if(!silent&&matches.length&&select.value!==previous)window.populateDailyStockTakeInputs();
+ // Searching must refresh the form even when the matching product was already
+ // selected. Otherwise the dropdown looks correct but its ledger figures stay stale.
+ if(!silent&&matches.length)window.populateDailyStockTakeInputs();
 };
 window.updateDailyStockTakePreview=function(){
  const openingRaw=$('stOpening')?.value||'',opening=openingRaw.trim()!==''&&Number.isFinite(Number(openingRaw))?Number(openingRaw):null;
