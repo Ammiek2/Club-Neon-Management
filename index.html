@@ -1283,7 +1283,7 @@ window.openingFromLastPhysicalClose=function(pid,day){
  const movementFlow=moves.filter(m=>m.product_id===pid&&between(date(m.created_at))).reduce((n,m)=>{
   const type=String(m.movement_type||'').toLowerCase();
   if(type==='stock_in'||type==='sale_adjustment')return n+Number(m.quantity||0);
-  if(type==='correction'){const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);}
+  if(type==='correction'){const note=String(m.note||''),up=note.match(/increase by ([0-9]+(?:\.[0-9]+)?)/i),down=note.match(/decrease by ([0-9]+(?:\.[0-9]+)?)/i);return n+(up?Number(up[1]):down?-Number(down[1]):0);}
   return n;
  },0);
  const sold=sales.filter(x=>x.product_id===pid&&between(date(x.created_at))).reduce((n,x)=>n+Number(x.quantity||0),0);
