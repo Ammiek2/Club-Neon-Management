@@ -291,7 +291,7 @@ main{padding:10px}
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
     <div class="field"><label for="stockTakeProductSearch">Find product (type to search)</label><input id="stockTakeProductSearch" type="search" placeholder="Start typing a product name..." autocomplete="off" oninput="filterStockTakeProducts()"></div><div class="field"><label>Product</label><select id="stockTakeProduct" onchange="populateDailyStockTakeInputs()"></select></div>
     <div class="field"><label>Opening stock (actual count at start of this date; auto-filled from last close, editable)</label><input id="stOpening" type="number" min="0" step="0.001" value="" oninput="updateDailyStockTakePreview()"></div>
-    <div class="field"><label>Stock added today</label><input id="stAdded" type="number" min="0" step="0.001" value="0" readonly></div>
+    <div class="field"><label>Stock added today (auto-filled from stock-in; editable)</label><input id="stAdded" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Sold today</label><input id="stSold" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Wastage / breakages</label><input id="stWastage" type="number" min="0" step="0.001" value="0" oninput="updateDailyStockTakePreview()"></div>
     <div class="field"><label>Physical closing stock (count what is at the counter)</label><input id="stClosing" type="number" min="0" step="0.001" placeholder="Enter actual counter count" oninput="updateDailyStockTakePreview()"></div>
@@ -1331,7 +1331,7 @@ window.populateDailyStockTakeInputs=function(){
  const day=$('stockTakeDate').value||date(new Date()),pid=$('stockTakeProduct').value;if(!pid)return;
  const old=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day),v=window.dailyStockFigures(pid,day);
  const lastClose=window.lastPhysicalCloseForDate(pid,day);
- $('stAdded').value=v.added.toFixed(3);
+ $('stAdded').value=old?Number(old.stock_added||0).toFixed(3):v.added.toFixed(3);
  $('stSold').value=old?Number(old.sold_qty||0).toFixed(3):v.sold.toFixed(3);
  $('stOpening').readOnly=false;
  if(old){
@@ -1547,18 +1547,18 @@ window.resolveDailyStockTakeIssue=async function(id){
 window.saveDailyStockTake=async function(){
  if(!role)return;
  const day=$('stockTakeDate').value,pid=$('stockTakeProduct').value;
- const openingRaw=$('stOpening').value,opening=Number(openingRaw),sold=Number($('stSold').value),wastage=Number($('stWastage').value),physicalRaw=$('stClosing').value,closing=Number(physicalRaw);
- if(!day||!pid||openingRaw.trim()===''||physicalRaw.trim()===''||![opening,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter the opening stock (if no earlier physical closing exists) and the actual physical quantity counted, using up to 3 decimal places.');
+ const openingRaw=$('stOpening').value,opening=Number(openingRaw),addedRaw=$('stAdded').value,added=Number(addedRaw),sold=Number($('stSold').value),wastage=Number($('stWastage').value),physicalRaw=$('stClosing').value,closing=Number(physicalRaw);
+ if(!day||!pid||openingRaw.trim()===''||addedRaw.trim()===''||physicalRaw.trim()===''||![opening,added,sold,wastage,closing].every(n=>Number.isFinite(n)&&n>=0&&Math.round(n*1000)===n*1000))return alert('Enter valid opening, stock added, sold, wastage and actual physical closing quantities (up to 3 decimal places).');
  const existingTake=dailyStockTakes.find(x=>x.product_id===pid&&x.collection_date===day);
  const wasSaved=!!existingTake;
  if(existingTake&&!confirm('A stock record for this product already exists on '+formatDate(day)+'.\n\nExisting: opening '+Number(existingTake.opening_qty||0)+', sold '+Number(existingTake.sold_qty||0)+', physical close '+(existingTake.physical_closing_qty??'not entered')+'.\n\nContinue and UPDATE that same daily record with these values? Choose Cancel to keep the existing record unchanged.'))return;
- const {data,error}=await sb.rpc('club_neon_correct_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_sold_override:sold,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});
+ const {data,error}=await sb.rpc('club_neon_correct_daily_stock_take',{p_business:bid,p_collection_date:day,p_product:pid,p_opening:opening,p_added:added,p_sold_override:sold,p_wastage:wastage,p_closing:closing,p_note:$('stNote').value.trim()||null});
  if(error)return alert('Could not save daily stock take: '+error.message);
  const out=Array.isArray(data)?data[0]:data;
  notify((wasSaved?'Daily stock take corrected. ':'Daily stock take recorded. ')+'This date is saved independently. Its physical close can carry into the next calendar date; other dates’ saved records remain unchanged.');
  await refreshAll();
 };
-window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);$('stOpening').readOnly=false;$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is based on recorded stock-in movements.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
+window.editDailyStockTake=async function(id){const x=dailyStockTakes.find(z=>z.id===id);if(!x)return;$('stockTakeDate').value=x.collection_date;$('collectionDate').value=x.collection_date;selectedCollectionDate=x.collection_date;$('stockTakeProduct').value=x.product_id;$('stOpening').value=Number(x.opening_qty||0).toFixed(3);$('stOpening').readOnly=false;$('stAdded').value=Number(x.stock_added||0).toFixed(3);$('stSold').value=Number(x.sold_qty||0).toFixed(3);$('stWastage').value=Number(x.wastage_qty||0).toFixed(3);$('stClosing').value=x.physical_closing_qty===null||x.physical_closing_qty===undefined?'':Number(x.physical_closing_qty).toFixed(3);$('stNote').value=x.note||'';$('stockTakeStatus').textContent='Editing saved entry for '+x.collection_date+'. Correct Opening, Stock added, Sold, Wastage or Physical closing, then Save daily stock take. Stock added is prefilled from recorded stock-in movements but can be edited for the actual count.';window.updateDailyStockTakePreview();$('stockTakeProduct').scrollIntoView({behavior:'smooth',block:'center'});};
 window.selectDailyStockTakeProduct=function(pid){
  $('stockTakeProduct').value=pid;
  populateDailyStockTakeInputs();
