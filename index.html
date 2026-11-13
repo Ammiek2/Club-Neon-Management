@@ -285,7 +285,7 @@ main{padding:10px}
   <details class="panel"><summary><strong>Sales history (open when needed)</strong></summary><p class="hint">Edit corrects an entry. Delete returns the sold quantity to stock. Totals follow the selected collection date. Admins can move a full day's saved sales to the correct date.</p><div class="actions"><button class="secondary" onclick="moveDailySalesDate()">Correct sales date (Admin)</button></div><div id="moveSalesDatePanel" class="panel hidden"><h3>Move saved sales to another date</h3><p class="hint">Enter dates manually using YYYY-MM-DD. Example: 2026-11-10</p><div class="grid"><div class="field"><label for="moveSalesFromDate">Move FROM date</label><input id="moveSalesFromDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div><div class="field"><label for="moveSalesToDate">Move TO date</label><input id="moveSalesToDate" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD"></div></div><div class="actions"><button onclick="executeMoveDailySalesDate()">Move sales</button><button class="secondary" onclick="document.getElementById('moveSalesDatePanel').classList.add('hidden')">Cancel</button></div></div><div id="salesHistoryTotals" class="sales-summary"></div><div id="salesTable" class="tablewrap"></div></details>
   </div><div class="panel" id="dailyStockTakePanel">
    <h2>Daily Stock Ledger</h2>
-   <p class="hint">Each date is kept separate. Last closing is the previous calendar day’s saved physical close; opening is the actual count at the start of this date and can be corrected independently. Added stock and recorded sales are filled from this date only. The ledger shows unrecorded opening stock, possible short sales, stock variance, sales value, unexplained stock value and potential loss separately. Values use selling price for sales and buying cost for stock value/loss. Decimal quantities such as 0.5 and 0.25 are supported.</p>
+   <p class="hint">Each date is kept separate. Last closing is the previous calendar day’s saved physical close; opening is the actual count at the start of this date and can be corrected independently. Added stock and recorded sales are filled from this date only. The ledger compares actual opening and physical closing counts with the previous date’s actual physical close. It shows opening shortage, closing shortage and their combined total separately; it never changes actual counts to force a match. Values use selling price for sales and buying cost for stock value/loss. Decimal quantities such as 0.5 and 0.25 are supported.</p>
    <div class="grid">
     <div class="field"><label>Stock-taking period</label><select id="stockTakePeriod" onchange="changeStockTakePeriod()"><option value="daily">Daily</option><option value="weekly">Weekly to selected date</option><option value="monthly">Monthly to selected date</option></select></div>
     <div class="field"><label>Collection / closing date</label><input id="stockTakeDate" type="date" onchange="changeStockTakeDate()"></div>
@@ -1323,6 +1323,7 @@ window.updateDailyStockTakePreview=function(){
   '<div class="card"><div class="muted">Expected closing stock</div><div class="metric">'+fmt(expectedClosing)+'</div></div>'+
   '<div class="card"><div class="muted">Physical closing stock</div><div class="metric">'+fmt(physical)+'</div></div>'+
   '<div class="card"><div class="muted">Unexplained stock shortage</div><div class="metric">'+fmt(variance===null?null:Math.max(0,variance))+'</div><div class="hint">Potential loss at cost: '+cash(variance===null?null:Math.max(0,variance),p?.buying_cost)+'</div></div>'+
+  '<div class="card"><div class="muted">Total unexplained shortage (opening + closing)</div><div class="metric">'+fmt(openingShort===null||variance===null?null:openingShort+Math.max(0,variance))+'</div><div class="hint">Combined stock shortage valued at buying cost</div></div>'+
   '<div class="card"><div class="muted">Short sales not in transactions</div><div class="metric">'+fmt(shortSales)+'</div><div class="hint">Potential sales value: '+cash(shortSales,p?.selling_price)+'</div></div>';
 };
 
@@ -1411,6 +1412,9 @@ window.loadDailyStockTakes=async function(silent=false){
   const unrecorded=lastClose===null||opening===null?null:Math.max(0,lastClose-opening);
   const openingSurplus=lastClose===null||opening===null?null:Math.max(0,opening-lastClose);
   const stockVariance=physical===null||expected===null?null:expected-physical;
+  const closingShortage=stockVariance===null?null:Math.max(0,stockVariance);
+  const totalShortage=unrecorded===null||closingShortage===null?null:unrecorded+closingShortage;
+  const totalShortageValue=totalShortage===null?null:totalShortage*Number(p.buying_cost||0);
   const missingSales=x?Math.max(0,sold-actualQty):0;
   const saleValue=actualValue+missingSales*Number(p.selling_price||0);
   const unrecordedCost=unrecorded===null?null:unrecorded*Number(p.buying_cost||0);
@@ -1432,6 +1436,7 @@ window.loadDailyStockTakes=async function(silent=false){
    '<td>'+(possibleShortSaleValue===null?'—':money(possibleShortSaleValue))+'</td>'+
    '<td>'+qtyMoney(missingSales,shortSalesValue,'sales')+'</td>'+
    '<td>'+qtyMoney(stockVariance,stockVariance===null?null:Math.abs(stockVariance)*Number(p.buying_cost||0),'cost')+'</td>'+
+   '<td>'+qtyMoney(totalShortage,totalShortageValue,'total shortage at cost')+'</td>'+
    '<td>'+money(saleValue)+'</td><td>'+(unrecordedCost===null?'—':money(unrecordedCost))+'</td><td>'+(potentialLoss===null?'—':money(potentialLoss))+'</td>'+
    '<td>'+(flagged?'<span class="issue-label">⚑ '+esc(noteText)+'</span>':flag?.status==='resolved'?'<span class="resolved-label">✓ '+esc(noteText)+'</span>':esc(noteText))+'</td><td>'+recordAction+' '+flagAction+'</td></tr>';
  });
@@ -1439,7 +1444,7 @@ window.loadDailyStockTakes=async function(silent=false){
   ...ds.map(x=>'<tr><td>'+formatDate(x.created_at)+'</td><td>'+esc(x.product_name)+'</td><td>'+x.quantity+'</td><td>'+money(x.total)+'</td><td>'+esc(x.payment_method)+'</td><td>'+esc(x.staff_name)+'</td><td><button class="secondary small" onclick="editSale(\''+x.id+'\')">Edit</button> '+(role==='admin'?'<button class="danger small" onclick="deleteSale(\''+x.id+'\')">Delete</button>':'')+'</td></tr>'),
   ...dailyStockTakes.map(x=>{const p=products.find(z=>z.id===x.product_id),actual=ds.filter(z=>z.product_id===x.product_id),aq=actual.reduce((a,z)=>a+Number(z.quantity||0),0),missing=Math.max(0,Number(x.sold_qty||0)-aq);return missing>0?'<tr><td>'+day+'</td><td>'+esc(p?.name||'Product')+'</td><td>'+missing.toFixed(3)+'</td><td>'+money(missing*Number(p?.selling_price||0))+'</td><td>Unallocated (stock count)</td><td>Not assigned</td><td>Correct in daily stock take</td></tr>':'';}).filter(Boolean)
  ]);
- $('dailyStockTakeTable').innerHTML=tbl(['Product','Last closing','Opening','Added','Sold','Physical close','Unrecorded stock','Possible sale value','Short sales*','Stock variance','Sales value','Unrecorded value (cost)','Potential loss (cost)','Note / explanation','Actions'],rows);
+ $('dailyStockTakeTable').innerHTML=tbl(['Product','Last closing','Opening','Added','Sold','Physical close','Opening shortage','Possible sale value','Short sales*','Closing variance','Total shortage','Sales value','Opening shortage value (cost)','Closing shortage loss (cost)','Note / explanation','Actions'],rows);
  const {data:noteStatusRows,error:noteStatusError}=await sb.from('sale_note_statuses').select('*').eq('business_id',bid);
  saleNoteStatuses=noteStatusError?[]:(noteStatusRows||[]);
  const notedSales=sales.filter(x=>date(x.created_at)===day&&String(x.note||'').trim()).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
@@ -1468,11 +1473,14 @@ window.renderSalesReconciliation=function(day){
   const physical=take&&take.physical_closing_qty!==null&&take.physical_closing_qty!==undefined?Number(take.physical_closing_qty):null;
   const expectedClose=opening===null?null:opening+added-sold-wastage+adjustment;
   const stockVariance=expectedClose===null||physical===null?null:expectedClose-physical;
+  const closingShortage=stockVariance===null?null:Math.max(0,stockVariance);
   const tx=sales.filter(z=>z.product_id===p.id&&date(z.created_at)===day);
   const systemSold=tx.reduce((n,z)=>n+Number(z.quantity||0),0);
   const unallocatedSales=Math.max(0,sold-systemSold);
   const unrecordedOpening=lastClose===null||opening===null?null:Math.max(0,lastClose-opening);
-  return {p,lastClose,opening,added,sold,wastage,adjustment,physical,expectedClose,stockVariance,systemSold,unallocatedSales,
+  const totalShortage=unrecordedOpening===null||closingShortage===null?null:unrecordedOpening+closingShortage;
+  return {p,lastClose,opening,added,sold,wastage,adjustment,physical,expectedClose,stockVariance,closingShortage,totalShortage,systemSold,unallocatedSales,
+   totalShortageValue:totalShortage===null?null:totalShortage*Number(p.buying_cost||0),
    unallocatedSalesValue:unallocatedSales*Number(p.selling_price||0),
    unrecordedOpening,unrecordedValue:unrecordedOpening===null?null:unrecordedOpening*Number(p.buying_cost||0),
    possibleSaleValue:unrecordedOpening===null?null:unrecordedOpening*Number(p.selling_price||0),
@@ -1485,19 +1493,21 @@ window.renderSalesReconciliation=function(day){
   ['Saved sale transactions',fmt(sum('systemSold'))+' units'],
   ['Short / unallocated sales',fmt(sum('unallocatedSales'))+' units'],
   ['Short-sales value',money(sum('unallocatedSalesValue'))],
-  ['Unrecorded opening stock',fmt(sum('unrecordedOpening'))+' units'],
-  ['Unrecorded stock value (cost)',money(sum('unrecordedValue'))],
-  ['Unexplained closing shortage',fmt(rows.reduce((n,x)=>n+Math.max(0,Number(x.stockVariance||0)),0))+' units'],
+  ['Opening shortage',fmt(sum('unrecordedOpening'))+' units'],
+  ['Opening shortage value (cost)',money(sum('unrecordedValue'))],
+  ['Closing shortage',fmt(sum('closingShortage'))+' units'],
+  ['TOTAL unexplained shortage',fmt(rows.reduce((n,x)=>n+Number(x.totalShortage||0),0))+' units'],
+  ['Total shortage value (cost)',money(sum('totalShortageValue'))],
   ['Potential loss at cost',money(sum('potentialLoss'))],
   ['Awaiting physical count',pending+' products']
  ].map(([a,b])=>'<div class="sales-total"><div class="label">'+a+'</div><div class="value">'+b+'</div></div>').join('');
- $('salesReconciliationTable').innerHTML=tbl(['Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Stock variance','Short-sales value','Unrecorded value (cost)','Potential loss (cost)'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+fmt(x.lastClose)+'</td><td>'+fmt(x.opening)+'</td><td>'+fmt(x.added)+'</td><td>'+fmt(x.sold)+'</td><td>'+fmt(x.systemSold)+'</td><td>'+fmt(x.unallocatedSales)+'</td><td>'+fmt(x.expectedClose)+'</td><td>'+fmt(x.physical)+'</td><td>'+fmt(x.stockVariance)+'</td><td>'+money(x.unallocatedSalesValue)+'</td><td>'+(x.unrecordedValue===null?'—':money(x.unrecordedValue))+'</td><td>'+(x.potentialLoss===null?'—':money(x.potentialLoss))+'</td></tr>'));
+ $('salesReconciliationTable').innerHTML=tbl(['Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Closing variance','Opening shortage','Total shortage','Short-sales value','Opening shortage value (cost)','Total shortage value (cost)'],rows.map(x=>'<tr><td>'+esc(x.p.name)+'</td><td>'+fmt(x.lastClose)+'</td><td>'+fmt(x.opening)+'</td><td>'+fmt(x.added)+'</td><td>'+fmt(x.sold)+'</td><td>'+fmt(x.systemSold)+'</td><td>'+fmt(x.unallocatedSales)+'</td><td>'+fmt(x.expectedClose)+'</td><td>'+fmt(x.physical)+'</td><td>'+fmt(x.stockVariance)+'</td><td>'+fmt(x.unrecordedOpening)+'</td><td>'+fmt(x.totalShortage)+'</td><td>'+money(x.unallocatedSalesValue)+'</td><td>'+(x.unrecordedValue===null?'—':money(x.unrecordedValue))+'</td><td>'+(x.totalShortageValue===null?'—':money(x.totalShortageValue))+'</td></tr>'));
  window.currentSalesReconciliation={day,rows};
 };
 window.exportSalesReconciliation=function(){
  const r=window.currentSalesReconciliation;if(!r)return alert('Load a date and reconciliation first.');
- const rows=[['Date','Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Stock variance','Short-sales value KSh','Unrecorded value at cost KSh','Potential loss at cost KSh']];
- r.rows.forEach(x=>rows.push([r.day,x.p.name,x.lastClose,x.opening,x.added,x.sold,x.systemSold,x.unallocatedSales,x.expectedClose,x.physical,x.stockVariance,x.unallocatedSalesValue,x.unrecordedValue,x.potentialLoss]));
+ const rows=[['Date','Product','Last close','Opening','Added','Ledger sold','Saved sales','Short / unallocated sales','Expected close','Physical close','Closing variance','Opening shortage','Total shortage','Short-sales value KSh','Opening shortage value at cost KSh','Total shortage value at cost KSh']];
+ r.rows.forEach(x=>rows.push([r.day,x.p.name,x.lastClose,x.opening,x.added,x.sold,x.systemSold,x.unallocatedSales,x.expectedClose,x.physical,x.stockVariance,x.unrecordedOpening,x.totalShortage,x.unallocatedSalesValue,x.unrecordedValue,x.totalShortageValue]));
  const csv=rows.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');
  download('\uFEFF'+csv,'club-neon-stock-check-'+r.day+'.csv','text/csv;charset=utf-8');
 };
